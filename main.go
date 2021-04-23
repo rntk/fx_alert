@@ -19,13 +19,13 @@ func processCommand(dbH *db.DB, msg telegram.Message) (string, error) {
 	}
 
 	if cmd.Command == commands.AddValue {
-		if err := dbH.Add(msg.From.Username, *cmd.Value); err != nil {
+		if err := dbH.Add(msg.Chat.ID, *cmd.Value); err != nil {
 			return "", fmt.Errorf("Can't add value: %w", err)
 		}
 
 		return "Added: " + msg.Text, nil
 	} else if cmd.Command == commands.DeleteValue {
-		if err := dbH.DeleteValue(msg.From.Username, cmd.Value.Key, cmd.Value.Value); err != nil {
+		if err := dbH.DeleteValue(msg.Chat.ID, cmd.Value.Key, cmd.Value.Value); err != nil {
 			return "", fmt.Errorf("Can't delete value: %w", err)
 		}
 
@@ -33,7 +33,7 @@ func processCommand(dbH *db.DB, msg telegram.Message) (string, error) {
 	}
 	if cmd.Command == commands.ListValues {
 		answer := ""
-		vals := dbH.List(msg.From.Username)
+		vals := dbH.List(msg.Chat.ID)
 		for _, v := range vals {
 			answer += fmt.Sprintf("%s %s %.5f\n", v.Key, v.Type, v.Value)
 		}
