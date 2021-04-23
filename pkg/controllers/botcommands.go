@@ -49,7 +49,7 @@ func processCommand(dbH *db.DB, msg telegram.Message) (string, error) {
 }
 
 func ProcessBotCommands(dbH *db.DB, tlg *telegram.Telegram, stopCh <-chan bool) {
-	msgCh := tlg.Start(3 * time.Second)
+	msgCh := tlg.Start(10 * time.Second)
 	errCh := tlg.Errors()
 	log.Printf("Bot commands controller started")
 	for {

@@ -139,7 +139,7 @@ func (t *Telegram) Errors() <-chan error {
 func New(token string) *Telegram {
 	return &Telegram{
 		token:  token,
-		client: &http.Client{},
+		client: &http.Client{Timeout: 5 * time.Second},
 		errCh:  make(chan error),
 	}
 }

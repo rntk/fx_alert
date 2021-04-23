@@ -39,7 +39,7 @@ func ProcessQuotes(dbH *db.DB, tlg *telegram.Telegram, stopCh <-chan bool) {
 					if !exists {
 						q, err := quoter.GetQuote(val.Key)
 						if err != nil {
-							log.Printf("Can't get quotes for: %q. %q. %v", ID, val.Key, err)
+							log.Printf("Can't get quotes for: %d. %q. %v", ID, val.Key, err)
 							continue
 						}
 						log.Printf("Got qoute: %v", q)
