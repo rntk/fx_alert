@@ -12,7 +12,7 @@ type sendMessageResponse struct {
 	OK bool
 }
 
-func (t *Telegram) SendMessage(userID int64, msg string, msgID int64) error {
+func (t *Telegram) SendMessage(chatID int64, msg string, msgID int64) error {
 	replyTo := ""
 	if msgID > 0 {
 		replyTo = "&reply_to_message_id=" + strconv.FormatInt(msgID, 10)
@@ -22,7 +22,7 @@ func (t *Telegram) SendMessage(userID int64, msg string, msgID int64) error {
 			"%s/bot%s/sendMessage?chat_id=%d&text=%s%s",
 			apiURL,
 			t.token,
-			userID,
+			chatID,
 			url.QueryEscape(msg),
 			replyTo,
 		),

@@ -91,3 +91,22 @@ func parseValue(msg string) (*db.Value, error) {
 		Type:  vt,
 	}, nil
 }
+
+func HelpAnswer() string {
+	answer := fmt.Sprintf(
+		`
+Add: %s EURUSD %s 1.2550
+Delete: %s EURUSD %s 1.2550
+List: %s
+Help: %s
+`,
+		AddValue,
+		db.AboveCurrent,
+		DeleteValue,
+		db.BelowCurrent,
+		ListValues,
+		Help,
+	)
+
+	return answer
+}

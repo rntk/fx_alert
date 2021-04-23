@@ -31,6 +31,26 @@ type Value struct {
 	Type  ValueType
 }
 
+func (v Value) IsAlert(currentV float64) bool {
+	if currentV >= v.Value {
+		if v.Type == AboveCurrent {
+			return true
+		}
+	}
+
+	if currentV <= v.Value {
+		if v.Type == BelowCurrent {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (v Value) String() string {
+	return fmt.Sprintf("%s %s %.5f", v.Key, v.Type, v.Value)
+}
+
 func (db *DB) Add(ID int64, val Value) error {
 	db.l.Lock()
 	defer db.l.Unlock()
@@ -110,6 +130,20 @@ func (db *DB) List(ID int64) []Value {
 			}
 			lst = append(lst, Value{Key: k, Value: v, Type: db.db[ID][k][rawV]})
 		}
+	}
+
+	return lst
+}
+
+func (db *DB) Users() []int64 {
+	db.l.RLock()
+	defer db.l.RUnlock()
+	if db.db == nil {
+		return nil
+	}
+	var lst []int64
+	for ID := range db.db {
+		lst = append(lst, ID)
 	}
 
 	return lst
