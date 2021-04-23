@@ -13,30 +13,42 @@ const (
 )
 
 type UpdatesResponse struct {
-	OK bool
+	OK     bool
 	Result []Update
+}
+
+type User struct {
+	ID       int64
+	Username string
 }
 
 type Update struct {
 	UpdateID int64 `json:"update_id"`
-	Message Message
+	Message  Message
 }
 
 type Message struct {
-	Text string
+	MessageID int64 `json:"message_id"`
+	Text      string
+	From      User
+	Chat      Chat
+}
+
+type Chat struct {
+	ID int64
 }
 
 type Telegram struct {
-	token string
-	updatesCh chan Message
-	stopCh chan struct{}
-	ticker time.Ticker
+	token        string
+	updatesCh    chan Message
+	stopCh       chan struct{}
+	ticker       time.Ticker
 	lastUpdateID int64
-	client *http.Client
-	errCh chan error
+	client       *http.Client
+	errCh        chan error
 }
 
-func (t *Telegram) Start(pause time.Duration) <- chan Message {
+func (t *Telegram) Start(pause time.Duration) <-chan Message {
 	if t.updatesCh != nil {
 		return t.updatesCh
 	}
@@ -95,10 +107,10 @@ func (t *Telegram) stop() {
 func (t *Telegram) getUpdates() ([]Update, error) {
 	resp, err := t.client.Get(
 		fmt.Sprintf(
-		"%s/bot%s/getUpdates?offset=%d",
+			"%s/bot%s/getUpdates?offset=%d",
 			apiURL,
 			t.token,
-			t.lastUpdateID + 1,
+			t.lastUpdateID+1,
 		),
 	)
 	if err != nil {
@@ -110,8 +122,7 @@ func (t *Telegram) getUpdates() ([]Update, error) {
 		return nil, err
 	}
 	var upds UpdatesResponse
-	err = json.Unmarshal(body, &upds)
-	if err != nil {
+	if err := json.Unmarshal(body, &upds); err != nil {
 		return nil, fmt.Errorf("Can`t unmarshal: %q. %w", body, err)
 	}
 	if !upds.OK {
@@ -121,14 +132,14 @@ func (t *Telegram) getUpdates() ([]Update, error) {
 	return upds.Result, nil
 }
 
-func (t *Telegram) Errors() <- chan error {
+func (t *Telegram) Errors() <-chan error {
 	return t.errCh
 }
 
 func New(token string) *Telegram {
 	return &Telegram{
-		token: token,
+		token:  token,
 		client: &http.Client{},
-		errCh: make(chan error),
+		errCh:  make(chan error),
 	}
 }
