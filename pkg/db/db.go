@@ -33,13 +33,13 @@ type Value struct {
 
 func (v Value) IsAlert(currentV float64) bool {
 	if currentV >= v.Value {
-		if v.Type == AboveCurrent {
+		if v.Type == BelowCurrent {
 			return true
 		}
 	}
 
 	if currentV <= v.Value {
-		if v.Type == BelowCurrent {
+		if v.Type == AboveCurrent {
 			return true
 		}
 	}
