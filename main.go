@@ -1,13 +1,14 @@
 package main
 
 import (
+	"context"
 	"flag"
-	"fx_alert/pkg/controllers"
 	"log"
 	"os"
 	"os/signal"
 	"sync"
 
+	"fx_alert/pkg/controllers"
 	"fx_alert/pkg/db"
 	"fx_alert/pkg/telegram"
 )
@@ -25,25 +26,23 @@ func main() {
 	}
 	tlg := telegram.New(token)
 	defer tlg.Stop()
-	stopBotCh := make(chan bool)
+	ctx, cancelFn := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		controllers.ProcessBotCommands(dbH, tlg, stopBotCh)
+		controllers.ProcessBotCommands(ctx, dbH, tlg)
 	}()
-	stopQuotesCh := make(chan bool)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		controllers.ProcessQuotes(dbH, tlg, stopQuotesCh)
+		controllers.ProcessQuotes(ctx, dbH, tlg)
 	}()
 	stopCh := make(chan os.Signal)
 	signal.Notify(stopCh, os.Kill, os.Interrupt)
 	<-stopCh
 	log.Print("Stopping...")
-	stopBotCh <- true
-	stopQuotesCh <- true
+	cancelFn()
 	wg.Wait()
 	log.Print("Done")
 }

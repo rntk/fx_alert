@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -48,13 +49,13 @@ func processCommand(dbH *db.DB, msg telegram.Message) (string, error) {
 	return commands.HelpAnswer(), nil
 }
 
-func ProcessBotCommands(dbH *db.DB, tlg *telegram.Telegram, stopCh <-chan bool) {
+func ProcessBotCommands(ctx context.Context, dbH *db.DB, tlg *telegram.Telegram) {
 	msgCh := tlg.Start(10 * time.Second)
 	errCh := tlg.Errors()
 	log.Printf("Bot commands controller started")
 	for {
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			return
 		case err := <-errCh:
 			// TODO: do not panic, send message?

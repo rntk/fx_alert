@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -10,19 +11,19 @@ import (
 	"fx_alert/pkg/telegram"
 )
 
-func ProcessQuotes(dbH *db.DB, tlg *telegram.Telegram, stopCh <-chan bool) {
+func ProcessQuotes(ctx context.Context, dbH *db.DB, tlg *telegram.Telegram) {
 	ticker := time.NewTicker(time.Minute)
 	log.Printf("Quotes controller started")
 	for {
 		select {
-		case <-stopCh:
+		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			ids := dbH.Users()
 			currentValue := map[string]float64{}
 			for _, ID := range ids {
 				select {
-				case <-stopCh:
+				case <-ctx.Done():
 					return
 				default:
 					break
@@ -30,7 +31,7 @@ func ProcessQuotes(dbH *db.DB, tlg *telegram.Telegram, stopCh <-chan bool) {
 				values := dbH.List(ID)
 				for _, val := range values {
 					select {
-					case <-stopCh:
+					case <-ctx.Done():
 						return
 					default:
 						break
