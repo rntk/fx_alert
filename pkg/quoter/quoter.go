@@ -23,6 +23,37 @@ type Quote struct {
 	Close  float64
 }
 
+func (q Quote) String() string {
+	return fmt.Sprintf(
+		"%s - h: %.5f l: %.5f o: %.5f c: %.5f",
+		q.Symbol,
+		q.High,
+		q.Low,
+		q.Open,
+		q.Close,
+	)
+}
+
+func (q Quote) IsValid() bool {
+	if q.Symbol == "" {
+		return false
+	}
+	if q.High <= 0 {
+		return false
+	}
+	if q.Low <= 0 {
+		return false
+	}
+	if q.Open <= 0 {
+		return false
+	}
+	if q.Close <= 0 {
+		return false
+	}
+
+	return true
+}
+
 func GetQuote(symbol string) (*Quote, error) {
 	return rbfrx(symbol)
 }
@@ -85,6 +116,9 @@ func rbfrx(symbol string) (*Quote, error) {
 		Close:  rq.OHLC[0].E,
 		High:   rq.OHLC[0].H,
 		Low:    rq.OHLC[0].L,
+	}
+	if !q.IsValid() {
+		return nil, fmt.Errorf("Not valid quote: %s. Raw: %q", q.String(), b)
 	}
 
 	return &q, nil
