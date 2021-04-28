@@ -26,30 +26,23 @@ type KeyboardButton struct {
 	Text string `json:"text"`
 }
 
-// TODO: should use form+POST request instead of GET
 func (t *Telegram) SendMessage(chatID int64, msgID int64, answer Answer) error {
-	replyTo := ""
+	form := url.Values{}
 	if msgID > 0 {
-		replyTo = "&reply_to_message_id=" + strconv.FormatInt(msgID, 10)
+		form.Add("reply_to_message_id", strconv.FormatInt(msgID, 10))
 	}
-	markup := ""
 	if answer.ReplyKeyboard != nil {
 		mb, err := json.Marshal(answer.ReplyKeyboard)
 		if err != nil {
 			return fmt.Errorf("Can't marshal markup: %w", err)
 		}
-		markup = "&reply_markup=" + url.QueryEscape(string(mb))
+		form.Add("reply_markup", string(mb))
 	}
-	resp, err := t.client.Get(
-		fmt.Sprintf(
-			"%s/bot%s/sendMessage?chat_id=%d&text=%s%s%s",
-			apiURL,
-			t.token,
-			chatID,
-			url.QueryEscape(answer.Text),
-			replyTo,
-			markup,
-		),
+	form.Add("chat_id", strconv.FormatInt(chatID, 10))
+	form.Add("text", answer.Text)
+	resp, err := t.client.PostForm(
+		fmt.Sprintf("%s/bot%s/sendMessage", apiURL, t.token),
+		form,
 	)
 	if err != nil {
 		return fmt.Errorf("Can't send message: %w", err)
