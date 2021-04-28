@@ -54,8 +54,7 @@ func ProcessBotCommands(ctx context.Context, dbH *db.DB, tlg *telegram.Telegram)
 		case <-ctx.Done():
 			return
 		case err := <-errCh:
-			// TODO: do not panic, send message?
-			log.Panicf("Error: %v", err)
+			log.Printf("ERROR: %v", err)
 		case msg := <-msgCh:
 			log.Printf("Got message: %v", msg)
 			answer, err := processCommand(dbH, msg)
