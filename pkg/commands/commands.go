@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"fx_alert/pkg/db"
+	"fx_alert/pkg/telegram"
 )
 
 type CommandType string
@@ -23,7 +24,7 @@ func CommandFromString(txt string) (CommandType, error) {
 	switch {
 	case strings.HasPrefix(txt, string(AddValue)+" "):
 		return AddValue, nil
-	case strings.HasPrefix(txt, string(DeleteValue)+" "):
+	case strings.HasPrefix(txt, string(DeleteValue)+" ") || (txt == string(DeleteValue)):
 		return DeleteValue, nil
 	case txt == string(ListValues):
 		return ListValues, nil
@@ -53,7 +54,23 @@ func Parse(msg string) (*CommandValue, error) {
 		return &CommandValue{Command: Help}, nil
 	}
 
-	if (cmdT == AddValue) || (cmdT == DeleteValue) {
+	if cmdT == AddValue {
+		v, err := parseValue(msg)
+		if err != nil {
+			return nil, err
+		}
+		cv := &CommandValue{
+			Command: cmdT,
+			Value:   v,
+		}
+
+		return cv, nil
+	}
+
+	if cmdT == DeleteValue {
+		if msg == string(DeleteValue) {
+			return &CommandValue{Command: DeleteValue}, nil
+		}
 		v, err := parseValue(msg)
 		if err != nil {
 			return nil, err
@@ -92,11 +109,12 @@ func parseValue(msg string) (*db.Value, error) {
 	}, nil
 }
 
-func HelpAnswer() string {
+func HelpAnswer() *telegram.Answer {
 	answer := fmt.Sprintf(
 		`
 Add: %s EURUSD %s 1.2550
 Delete: %s EURUSD %s 1.2550
+Keyboard delete: %s
 List: %s
 Help: %s
 `,
@@ -104,9 +122,10 @@ Help: %s
 		db.AboveCurrent,
 		DeleteValue,
 		db.BelowCurrent,
+		DeleteValue,
 		ListValues,
 		Help,
 	)
 
-	return answer
+	return &telegram.Answer{Text: answer}
 }

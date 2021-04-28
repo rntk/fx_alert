@@ -52,7 +52,7 @@ func ProcessQuotes(ctx context.Context, dbH *db.DB, tlg *telegram.Telegram) {
 					}
 					go func(ID int64, val db.Value, p float64) {
 						msg := fmt.Sprintf("Alert: %s. \n. Current: %.5f", val.String(), p)
-						if err := tlg.SendMessage(ID, msg, 0); err != nil {
+						if err := tlg.SendMessage(ID, 0, telegram.Answer{Text: msg}); err != nil {
 							log.Printf("Can't send alert: %d. %q. %v", ID, msg, err)
 							return
 						}

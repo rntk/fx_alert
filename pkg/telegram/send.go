@@ -8,23 +8,47 @@ import (
 	"strconv"
 )
 
+type Answer struct {
+	Text          string
+	ReplyKeyboard *ReplyKeyboardMarkup
+}
+
 type sendMessageResponse struct {
 	OK bool
 }
 
-func (t *Telegram) SendMessage(chatID int64, msg string, msgID int64) error {
+type ReplyKeyboardMarkup struct {
+	Keyboard        [][]KeyboardButton `json:"keyboard"`
+	OneTimeKeyboard bool               `json:"one_time_keyboard"`
+}
+
+type KeyboardButton struct {
+	Text string `json:"text"`
+}
+
+// TODO: should use form+POST request instead of GET
+func (t *Telegram) SendMessage(chatID int64, msgID int64, answer Answer) error {
 	replyTo := ""
 	if msgID > 0 {
 		replyTo = "&reply_to_message_id=" + strconv.FormatInt(msgID, 10)
 	}
+	markup := ""
+	if answer.ReplyKeyboard != nil {
+		mb, err := json.Marshal(answer.ReplyKeyboard)
+		if err != nil {
+			return fmt.Errorf("Can't marshal markup: %w", err)
+		}
+		markup = "&reply_markup=" + url.QueryEscape(string(mb))
+	}
 	resp, err := t.client.Get(
 		fmt.Sprintf(
-			"%s/bot%s/sendMessage?chat_id=%d&text=%s%s",
+			"%s/bot%s/sendMessage?chat_id=%d&text=%s%s%s",
 			apiURL,
 			t.token,
 			chatID,
-			url.QueryEscape(msg),
+			url.QueryEscape(answer.Text),
 			replyTo,
+			markup,
 		),
 	)
 	if err != nil {
