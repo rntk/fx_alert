@@ -3,6 +3,7 @@ package quoter
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,9 +12,47 @@ import (
 	"time"
 )
 
-var client = http.Client{
-	Timeout: 5 * time.Second,
-}
+var (
+	client = http.Client{
+		Timeout: 5 * time.Second,
+	}
+	// ErrNotAllowed if symbol not found in list of allowed symbols.
+	ErrNotAllowed = errors.New("Symbol not allowed")
+	// ErrNoQuote if quote still not fetched from provider.
+	ErrNoQuote = errors.New("No quote")
+
+	allowedQuotes = map[string]struct{}{
+		"AUDCAD": {},
+		"AUDCHF": {},
+		"AUDJPY": {},
+		"AUDNZD": {},
+		"AUDUSD": {},
+		"CADCHF": {},
+		"CADJPY": {},
+		"CHFJPY": {},
+		"EURAUD": {},
+		"EURCAD": {},
+		"EURCHF": {},
+		"EURGBP": {},
+		"EURJPY": {},
+		"EURNZD": {},
+		"EURUSD": {},
+		"GBPAUD": {},
+		"GBPCAD": {},
+		"GBPCHF": {},
+		"GBPJPY": {},
+		"GBPNZD": {},
+		"GBPUSD": {},
+		"NZDCAD": {},
+		"NZDCHF": {},
+		"NZDJPY": {},
+		"NZDUSD": {},
+		"USDCAD": {},
+		"USDCHF": {},
+		"USDJPY": {},
+		"BTCUSD": {},
+	}
+)
 
 type Quote struct {
 	Symbol string
@@ -122,4 +161,21 @@ func rbfrx(symbol string) (*Quote, error) {
 	}
 
 	return &q, nil
+}
+
+func IsValidSymbol(symbol string) bool {
+	symbol = strings.ToUpper(symbol)
+	_, exists := allowedQuotes[symbol]
+
+	return exists
+
+}
+
+func GetAllowedSymbols() []string {
+	var r []string
+	for s := range allowedQuotes {
+		r = append(r, s)
+	}
+
+	return r
 }
