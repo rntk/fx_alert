@@ -13,21 +13,32 @@ import (
 type CommandType string
 
 const (
-	AddValue    CommandType = "/add"
-	DeleteValue CommandType = "/del"
-	ListValues  CommandType = "/ls"
-	Help        CommandType = "/help"
+	AddLevelValue    CommandType = "/ladd"
+	DeleteLevelValue CommandType = "/ldel"
+	ListLevelValues  CommandType = "/lls"
+	AddDeltaValue    CommandType = "/dadd"
+	DeleteDeltaValue CommandType = "/ddel"
+	ListDeltaValues  CommandType = "/dls"
+	Help             CommandType = "/help"
+
+	DeltaAllSymbols = "*"
 )
 
 func CommandFromString(txt string) (CommandType, error) {
 	txt = strings.TrimSpace(strings.ToLower(txt))
 	switch {
-	case strings.HasPrefix(txt, string(AddValue)+" "):
-		return AddValue, nil
-	case strings.HasPrefix(txt, string(DeleteValue)+" ") || (txt == string(DeleteValue)):
-		return DeleteValue, nil
-	case txt == string(ListValues):
-		return ListValues, nil
+	case strings.HasPrefix(txt, string(AddLevelValue)+" "):
+		return AddLevelValue, nil
+	case strings.HasPrefix(txt, string(DeleteLevelValue)+" ") || (txt == string(DeleteLevelValue)):
+		return DeleteLevelValue, nil
+	case txt == string(ListLevelValues):
+		return ListLevelValues, nil
+	case strings.HasPrefix(txt, string(AddDeltaValue)+" "):
+		return AddDeltaValue, nil
+	case strings.HasPrefix(txt, string(DeleteDeltaValue)+" ") || (txt == string(DeleteDeltaValue)):
+		return DeleteDeltaValue, nil
+	case txt == string(ListDeltaValues):
+		return ListDeltaValues, nil
 	case txt == string(Help):
 		return Help, nil
 	}
@@ -37,7 +48,8 @@ func CommandFromString(txt string) (CommandType, error) {
 
 type CommandValue struct {
 	Command CommandType
-	Value   *db.Value
+	Level   *db.LevelValue
+	Delta   *db.DeltaValue
 }
 
 func Parse(msg string) (*CommandValue, error) {
@@ -47,37 +59,67 @@ func Parse(msg string) (*CommandValue, error) {
 		return nil, fmt.Errorf("Can't parse command: %w", err)
 	}
 
-	if cmdT == ListValues {
-		return &CommandValue{Command: ListValues}, nil
+	if cmdT == ListLevelValues {
+		return &CommandValue{Command: ListLevelValues}, nil
+	}
+	if cmdT == ListDeltaValues {
+		return &CommandValue{Command: ListDeltaValues}, nil
 	}
 	if cmdT == Help {
 		return &CommandValue{Command: Help}, nil
 	}
 
-	if cmdT == AddValue {
-		v, err := parseValue(msg)
+	if cmdT == AddLevelValue {
+		v, err := parseLevelValue(msg)
 		if err != nil {
 			return nil, err
 		}
 		cv := &CommandValue{
 			Command: cmdT,
-			Value:   v,
+			Level:   v,
+		}
+
+		return cv, nil
+	}
+	if cmdT == AddDeltaValue {
+		v, err := parseDeltaValue(msg)
+		if err != nil {
+			return nil, err
+		}
+		cv := &CommandValue{
+			Command: cmdT,
+			Delta:   v,
 		}
 
 		return cv, nil
 	}
 
-	if cmdT == DeleteValue {
-		if msg == string(DeleteValue) {
-			return &CommandValue{Command: DeleteValue}, nil
+	if cmdT == DeleteLevelValue {
+		if msg == string(DeleteLevelValue) {
+			return &CommandValue{Command: DeleteLevelValue}, nil
 		}
-		v, err := parseValue(msg)
+		v, err := parseLevelValue(msg)
 		if err != nil {
 			return nil, err
 		}
 		cv := &CommandValue{
 			Command: cmdT,
-			Value:   v,
+			Level:   v,
+		}
+
+		return cv, nil
+	}
+	if cmdT == DeleteDeltaValue {
+		if msg == string(DeleteDeltaValue) {
+			return &CommandValue{Command: DeleteDeltaValue}, nil
+		}
+		v, err := parseDeltaValue(msg)
+		if err != nil {
+			return nil, err
+		}
+		cv := &CommandValue{
+			Command: cmdT,
+			Delta:   v,
 		}
 
 		return cv, nil
@@ -86,12 +128,12 @@ func Parse(msg string) (*CommandValue, error) {
 	return nil, errors.New("Unsupported command")
 }
 
-func parseValue(msg string) (*db.Value, error) {
+func parseLevelValue(msg string) (*db.LevelValue, error) {
 	parts := strings.Split(msg, " ")
 	if len(parts) != 4 {
 		return nil, errors.New("Unsupported command format")
 	}
-	k := parts[1]
+	k := strings.ToUpper(parts[1])
 	vt, err := db.ValueTypeFromString(parts[2])
 	if err != nil {
 		return nil, fmt.Errorf("Can't parse value type: %w", err)
@@ -102,28 +144,60 @@ func parseValue(msg string) (*db.Value, error) {
 		return nil, fmt.Errorf("Can't parse value: %q. %w", rawVal, err)
 	}
 
-	return &db.Value{
+	return &db.LevelValue{
 		Key:   k,
 		Value: v,
 		Type:  vt,
 	}, nil
 }
 
+func parseDeltaValue(msg string) (*db.DeltaValue, error) {
+	parts := strings.Split(msg, " ")
+	if len(parts) != 4 {
+		return nil, errors.New("Unsupported command format")
+	}
+	k := strings.ToUpper(parts[1])
+	rawVal := strings.ReplaceAll(parts[2], ",", ".")
+	v, err := strconv.ParseFloat(rawVal, 64)
+	if err != nil {
+		return nil, fmt.Errorf("Can't parse value: %q. %w", rawVal, err)
+	}
+	rawD := strings.ReplaceAll(parts[3], ",", ".")
+	d, err := strconv.ParseFloat(rawD, 64)
+	if err != nil {
+		return nil, fmt.Errorf("Can't parse delta: %q. %w", rawVal, err)
+	}
+
+	return &db.DeltaValue{
+		Key:   k,
+		Value: v,
+		Delta: d,
+	}, nil
+}
+
 func HelpAnswer() *telegram.Answer {
 	answer := fmt.Sprintf(
 		`
-Add: %s EURUSD %s 1.2550
-Delete: %s EURUSD %s 1.2550
-Keyboard delete: %s
-List: %s
+Add level: %s EURUSD %s 1.2550
+Delete level: %s EURUSD %s 1.2550
+Keyboard delete level: %s
+List levels: %s
+Add delta: %s EURUSD 1.2550 500
+Delete delta: %s EURUSD 1.2550 500
+Keyboard delete delta: %s
+List deltas: %s
 Help: %s
 `,
-		AddValue,
+		AddLevelValue,
 		db.AboveCurrent,
-		DeleteValue,
+		DeleteLevelValue,
 		db.BelowCurrent,
-		DeleteValue,
-		ListValues,
+		DeleteLevelValue,
+		ListLevelValues,
+		AddDeltaValue,
+		DeleteDeltaValue,
+		DeleteDeltaValue,
+		ListDeltaValues,
 		Help,
 	)
 

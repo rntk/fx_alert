@@ -10,6 +10,7 @@ import (
 
 	"fx_alert/pkg/controllers"
 	"fx_alert/pkg/db"
+	"fx_alert/pkg/quoter"
 	"fx_alert/pkg/telegram"
 )
 
@@ -29,14 +30,15 @@ func main() {
 	ctx, cancelFn := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
 	wg.Add(1)
+	quotesHolder := quoter.NewHolder(quoter.GetAllowedSymbols())
 	go func() {
 		defer wg.Done()
-		controllers.ProcessBotCommands(ctx, dbH, tlg)
+		controllers.ProcessBotCommands(ctx, dbH, quotesHolder, tlg)
 	}()
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		controllers.ProcessQuotes(ctx, dbH, tlg)
+		controllers.ProcessQuotes(ctx, dbH, quotesHolder, tlg)
 	}()
 	stopCh := make(chan os.Signal)
 	signal.Notify(stopCh, os.Kill, os.Interrupt)

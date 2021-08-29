@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -19,19 +20,28 @@ const (
 	BelowCurrent ValueType = ">"
 )
 
+type Levels map[string]ValueType
+
+type Deltas map[string]float64
+
+type SymbolSettings struct {
+	Levels Levels
+	Deltas Deltas
+}
+
 type DB struct {
 	l    sync.RWMutex
 	path string
-	db   map[int64]map[string]map[string]ValueType
+	db   map[int64]map[string]SymbolSettings
 }
 
-type Value struct {
+type LevelValue struct {
 	Key   string
 	Value float64
 	Type  ValueType
 }
 
-func (v Value) IsAlert(currentV float64) bool {
+func (v LevelValue) IsAlert(currentV float64) bool {
 	if currentV >= v.Value {
 		if v.Type == BelowCurrent {
 			return true
@@ -47,39 +57,81 @@ func (v Value) IsAlert(currentV float64) bool {
 	return false
 }
 
-func (v Value) String() string {
+func (v LevelValue) String() string {
 	return fmt.Sprintf("%s %s %.5f", v.Key, v.Type, v.Value)
 }
 
-func (db *DB) Add(ID int64, val Value) error {
+type DeltaValue struct {
+	Key   string
+	Value float64
+	Delta float64
+}
+
+func (dv DeltaValue) IsAlert(price float64) bool {
+	dlt := math.Abs(price-dv.Value) * 100000
+
+	return dlt >= dv.Delta
+}
+
+func (v DeltaValue) String() string {
+	return fmt.Sprintf("%s %.5f %.0f", v.Key, v.Value, v.Delta)
+}
+
+func (db *DB) AddLevel(ID int64, val LevelValue) error {
 	db.l.Lock()
 	defer db.l.Unlock()
 	if db.db == nil {
-		db.db = map[int64]map[string]map[string]ValueType{}
+		db.db = map[int64]map[string]SymbolSettings{}
 	}
 	if db.db[ID] == nil {
-		db.db[ID] = map[string]map[string]ValueType{}
+		db.db[ID] = map[string]SymbolSettings{}
 	}
-	if db.db[ID][val.Key] == nil {
-		db.db[ID][val.Key] = map[string]ValueType{}
+	sett := db.db[ID][val.Key]
+	if sett.Levels == nil {
+		sett.Levels = Levels{}
 	}
+	db.db[ID][val.Key] = sett
 	v := strconv.FormatFloat(val.Value, 'f', 5, 64)
-	if _, exists := db.db[ID][val.Key][v]; !exists {
-		db.db[ID][val.Key][v] = val.Type
+	if _, exists := db.db[ID][val.Key].Levels[v]; !exists {
+		db.db[ID][val.Key].Levels[v] = val.Type
 	}
 
 	return db.save()
 }
 
-func (db *DB) DeleteKey(ID int64, key string) error {
+func (db *DB) AddDeltas(ID int64, values []DeltaValue) error {
 	db.l.Lock()
 	defer db.l.Unlock()
-	db.deleteKey(ID, key)
+	if db.db == nil {
+		db.db = map[int64]map[string]SymbolSettings{}
+	}
+	if db.db[ID] == nil {
+		db.db[ID] = map[string]SymbolSettings{}
+	}
+	for _, val := range values {
+		sett := db.db[ID][val.Key]
+		if sett.Deltas == nil {
+			sett.Deltas = Deltas{}
+		}
+		db.db[ID][val.Key] = sett
+		v := strconv.FormatFloat(val.Value, 'f', 5, 64)
+		if _, exists := db.db[ID][val.Key].Deltas[v]; !exists {
+			db.db[ID][val.Key].Deltas[v] = val.Delta
+		}
+	}
 
 	return db.save()
 }
 
-func (db *DB) deleteKey(ID int64, key string) {
+func (db *DB) DeleteSymbolKey(ID int64, key string) error {
+	db.l.Lock()
+	defer db.l.Unlock()
+	db.deleteSymbolKey(ID, key)
+
+	return db.save()
+}
+
+func (db *DB) deleteSymbolKey(ID int64, key string) {
 	if db.db == nil {
 		return
 	}
@@ -87,9 +139,19 @@ func (db *DB) deleteKey(ID int64, key string) {
 		return
 	}
 	delete(db.db[ID], key)
+	// delete empty user
+	if len(db.db[ID]) == 0 {
+		delete(db.db, ID)
+	}
 }
 
-func (db *DB) DeleteValue(ID int64, key string, value float64) error {
+func (db *DB) deleteEmptySymbol(ID int64, key string) {
+	if (len(db.db[ID][key].Levels) == 0) && (len(db.db[ID][key].Deltas) == 0) {
+		db.deleteSymbolKey(ID, key)
+	}
+}
+
+func (db *DB) DeleteLevelValue(ID int64, key string, value float64) error {
 	db.l.Lock()
 	defer db.l.Unlock()
 	if db.db == nil {
@@ -98,19 +160,36 @@ func (db *DB) DeleteValue(ID int64, key string, value float64) error {
 	if db.db[ID] == nil {
 		return nil
 	}
-	if db.db[ID][key] == nil {
+	if db.db[ID][key].Levels == nil {
 		return nil
 	}
 	v := strconv.FormatFloat(value, 'f', 5, 64)
-	delete(db.db[ID][key], v)
-	if len(db.db[ID][key]) == 0 {
-		db.deleteKey(ID, key)
-	}
+	delete(db.db[ID][key].Levels, v)
+	db.deleteEmptySymbol(ID, key)
 
 	return db.save()
 }
 
-func (db *DB) List(ID int64) []Value {
+func (db *DB) DeleteDeltaValue(ID int64, key string, value float64) error {
+	db.l.Lock()
+	defer db.l.Unlock()
+	if db.db == nil {
+		return nil
+	}
+	if db.db[ID] == nil {
+		return nil
+	}
+	if db.db[ID][key].Deltas == nil {
+		return nil
+	}
+	v := strconv.FormatFloat(value, 'f', 5, 64)
+	delete(db.db[ID][key].Deltas, v)
+	db.deleteEmptySymbol(ID, key)
+
+	return db.save()
+}
+
+func (db *DB) ListLevels(ID int64) []LevelValue {
 	db.l.RLock()
 	defer db.l.RUnlock()
 	if db.db == nil {
@@ -119,16 +198,41 @@ func (db *DB) List(ID int64) []Value {
 	if db.db[ID] == nil {
 		return nil
 	}
-	var lst []Value
+	var lst []LevelValue
 	for k := range db.db[ID] {
-		for rawV := range db.db[ID][k] {
+		for rawV := range db.db[ID][k].Levels {
 			v, err := strconv.ParseFloat(rawV, 64)
 			if err != nil {
 				// TODO: panic or change db scheme?
 				log.Printf("Can't parse float value from base: %q. %v", rawV, err)
 				continue
 			}
-			lst = append(lst, Value{Key: k, Value: v, Type: db.db[ID][k][rawV]})
+			lst = append(lst, LevelValue{Key: k, Value: v, Type: db.db[ID][k].Levels[rawV]})
+		}
+	}
+
+	return lst
+}
+
+func (db *DB) ListDeltas(ID int64) []DeltaValue {
+	db.l.RLock()
+	defer db.l.RUnlock()
+	if db.db == nil {
+		return nil
+	}
+	if db.db[ID] == nil {
+		return nil
+	}
+	var lst []DeltaValue
+	for k := range db.db[ID] {
+		for rawV := range db.db[ID][k].Deltas {
+			v, err := strconv.ParseFloat(rawV, 64)
+			if err != nil {
+				// TODO: panic or change db scheme?
+				log.Printf("Can't parse float value from base: %q. %v", rawV, err)
+				continue
+			}
+			lst = append(lst, DeltaValue{Key: k, Value: v, Delta: db.db[ID][k].Deltas[rawV]})
 		}
 	}
 
