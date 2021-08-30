@@ -164,7 +164,7 @@ func processDeleteDeltaCommand(dbH *db.DB, msg telegram.Message, cmd commands.Co
 
 		return &telegram.Answer{Text: "Select: ", ReplyKeyboard: rk}, nil
 	}
-	if err := dbH.DeleteDeltaValue(msg.Chat.ID, cmd.Level.Key, cmd.Level.Value); err != nil {
+	if err := dbH.DeleteDeltaValue(msg.Chat.ID, cmd.Delta.Key, cmd.Delta.Value); err != nil {
 		return nil, fmt.Errorf("Can't delete value: %w", err)
 	}
 
