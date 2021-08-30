@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -39,68 +40,25 @@ type Chat struct {
 }
 
 type Telegram struct {
+	m            sync.Mutex
 	token        string
-	updatesCh    chan Message
-	stopCh       chan struct{}
 	lastUpdateID int64
 	client       *http.Client
-	errCh        chan error
 }
 
-func (t *Telegram) Start(pause time.Duration) <-chan Message {
-	if t.updatesCh != nil {
-		return t.updatesCh
+func (t *Telegram) GetUpdates() ([]Update, error) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	upds, err := t.getUpdates()
+	if err != nil {
+		return nil, fmt.Errorf("Can't get updates. Offset: %d. %w", t.lastUpdateID, err)
 	}
-	t.updatesCh = make(chan Message)
-	t.stopCh = make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(pause)
-		defer func() {
-			ticker.Stop()
-		}()
-		for {
-			select {
-			case <-t.stopCh:
-				t.stop()
-				return
-			case <-ticker.C:
-				upds, err := t.getUpdates()
-				if err != nil {
-					t.errCh <- fmt.Errorf("Can't get updates. Offset: %d. %w", t.lastUpdateID, err)
-					upds = nil
-				}
-				for _, upd := range upds {
-				msgLoop:
-					for {
-						select {
-						case t.updatesCh <- upd.Message:
-							t.lastUpdateID = upd.UpdateID
-							break msgLoop
-						case <-t.stopCh:
-							t.stop()
-							return
-						}
-					}
-				}
-			}
-		}
-	}()
-
-	return t.updatesCh
-}
-
-func (t *Telegram) Stop() {
-	if t.stopCh == nil {
-		return
+	last := len(upds) - 1
+	if last >= 0 {
+		t.lastUpdateID = upds[last].UpdateID
 	}
-	t.stopCh <- struct{}{}
-}
 
-func (t *Telegram) stop() {
-	close(t.updatesCh)
-	t.updatesCh = nil
-	close(t.stopCh)
-	t.stopCh = nil
+	return upds, nil
 }
 
 func (t *Telegram) getUpdates() ([]Update, error) {
@@ -131,14 +89,10 @@ func (t *Telegram) getUpdates() ([]Update, error) {
 	return upds.Result, nil
 }
 
-func (t *Telegram) Errors() <-chan error {
-	return t.errCh
-}
-
 func New(token string) *Telegram {
 	return &Telegram{
+		m:      sync.Mutex{},
 		token:  token,
 		client: &http.Client{Timeout: 5 * time.Second},
-		errCh:  make(chan error),
 	}
 }
