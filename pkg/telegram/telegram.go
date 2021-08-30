@@ -42,6 +42,7 @@ type Telegram struct {
 	token        string
 	updatesCh    chan Message
 	stopCh       chan struct{}
+	ticker       time.Ticker
 	lastUpdateID int64
 	client       *http.Client
 	errCh        chan error

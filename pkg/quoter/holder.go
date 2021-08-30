@@ -40,7 +40,7 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 	}
 	h.m.Lock()
 	defer h.m.Unlock()
-	if t := time.Since(h.lasUpdate); t.Minutes() < 1 {
+	if t := time.Now().Sub(h.lasUpdate); t.Minutes() < 1 {
 		log.Print("[INFO] Skip update less than 1 minute")
 		return
 	}
@@ -65,7 +65,7 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 				h.db[wRes.q.Symbol] = &wRes.q
 				log.Printf("Gor quote: %v", wRes.q)
 			} else {
-				log.Printf("[ERROR] Can't fetch quote: %q. %v", wRes.q.Symbol, wRes.err)
+				log.Println("[ERROR] Can't fetch quote: %q. %v", wRes.q.Symbol, wRes.err)
 			}
 			if recvQuN >= sendSymbN {
 				h.lasUpdate = time.Now()

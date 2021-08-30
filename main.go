@@ -18,7 +18,7 @@ func main() {
 	dbPath := flag.String("db", "db.json", "path to database")
 	dbH, err := db.New(*dbPath, true)
 	if err != nil {
-		log.Panicf("Can't create database: %q. %v", *dbPath, err)
+		log.Panicf("Can't create database: %q. %v", dbPath, err)
 	}
 
 	token := os.Getenv("BOT_TOKEN")
@@ -40,8 +40,8 @@ func main() {
 		defer wg.Done()
 		controllers.ProcessQuotes(ctx, dbH, quotesHolder, tlg)
 	}()
-	stopCh := make(chan os.Signal, 1)
-	signal.Notify(stopCh, os.Interrupt)
+	stopCh := make(chan os.Signal)
+	signal.Notify(stopCh, os.Kill, os.Interrupt)
 	<-stopCh
 	log.Print("Stopping...")
 	cancelFn()
