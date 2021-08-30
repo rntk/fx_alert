@@ -11,7 +11,8 @@ import (
 	"fx_alert/pkg/telegram"
 )
 
-func ProcessQuotes(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg *telegram.Telegram) {
+func ProcessQuotes(ctx context.Context, dbH *db.DB, tlg *telegram.Telegram) {
+	qHolder := quoter.NewHolder(quoter.GetAllowedSymbols())
 	ticker := time.NewTicker(time.Minute)
 	log.Printf("Quotes controller started")
 	for {
@@ -35,7 +36,7 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 		default:
 			break
 		}
-		values := dbH.ListLevels(ID)
+		values := dbH.List(ID)
 		for _, val := range values {
 			select {
 			case <-ctx.Done():
@@ -51,14 +52,14 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 			if !val.IsAlert(q.Close) {
 				continue
 			}
-			go func(ID int64, val db.LevelValue, p float64) {
-				msg := fmt.Sprintf("Level alert: %s. \n. Current: %.5f", val.String(), p)
+			go func(ID int64, val db.Value, p float64) {
+				msg := fmt.Sprintf("Alert: %s. \n. Current: %.5f", val.String(), p)
 				if err := tlg.SendMessage(ID, 0, telegram.Answer{Text: msg}); err != nil {
 					log.Printf("Can't send alert: %d. %q. %v", ID, msg, err)
 					return
 				}
 				log.Printf("Sent alert: %d. %q", ID, msg)
-				if err := dbH.DeleteLevelValue(ID, val.Key, val.Value); err != nil {
+				if err := dbH.DeleteValue(ID, val.Key, val.Value); err != nil {
 					log.Printf("Can't delete: %d. %q. %v", ID, val.String(), err)
 					return
 				}
@@ -77,7 +78,7 @@ func checkUsersRangeAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 		default:
 			break
 		}
-		values := dbH.ListDeltas(ID)
+		values := dbH.List(ID)
 		for _, val := range values {
 			select {
 			case <-ctx.Done():
@@ -93,14 +94,14 @@ func checkUsersRangeAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 			if !val.IsAlert(q.Close) {
 				continue
 			}
-			go func(ID int64, val db.DeltaValue, p float64) {
-				msg := fmt.Sprintf("Delta alert: %s. \n. Current: %.5f", val.String(), p)
+			go func(ID int64, val db.Value, p float64) {
+				msg := fmt.Sprintf("Alert: %s. \n. Current: %.5f", val.String(), p)
 				if err := tlg.SendMessage(ID, 0, telegram.Answer{Text: msg}); err != nil {
 					log.Printf("Can't send alert: %d. %q. %v", ID, msg, err)
 					return
 				}
 				log.Printf("Sent alert: %d. %q", ID, msg)
-				if err := dbH.DeleteDeltaValue(ID, val.Key, val.Value); err != nil {
+				if err := dbH.DeleteValue(ID, val.Key, val.Value); err != nil {
 					log.Printf("Can't delete: %d. %q. %v", ID, val.String(), err)
 					return
 				}
