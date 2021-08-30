@@ -77,7 +77,7 @@ func ProcessBotCommands(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder,
 				log.Printf("Can't process command: %q. %v", msg.Text, err)
 			}
 			if err := tlg.SendMessage(msg.Chat.ID, msg.MessageID, *answer); err != nil {
-				log.Printf("Can't send message: %q. %v", answer, err)
+				log.Printf("Can't send message: %v. %v", answer, err)
 			}
 		}
 	}

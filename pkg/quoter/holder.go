@@ -65,7 +65,7 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 				h.db[wRes.q.Symbol] = &wRes.q
 				log.Printf("Gor quote: %v", wRes.q)
 			} else {
-				log.Println("[ERROR] Can't fetch quote: %q. %v", wRes.q.Symbol, wRes.err)
+				log.Printf("[ERROR] Can't fetch quote: %q. %v", wRes.q.Symbol, wRes.err)
 			}
 			if recvQuN >= sendSymbN {
 				h.lasUpdate = time.Now()
