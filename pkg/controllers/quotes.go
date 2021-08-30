@@ -14,6 +14,7 @@ import (
 func ProcessQuotes(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg *telegram.Telegram) {
 	ticker := time.NewTicker(time.Minute)
 	log.Printf("Quotes controller started")
+	go qHolder.Update(ctx, 2)
 	for {
 		select {
 		case <-ctx.Done():
