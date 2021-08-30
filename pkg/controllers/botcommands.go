@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sort"
 	"time"
 
 	"fx_alert/pkg/commands"
@@ -63,6 +64,9 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 			return &telegram.Answer{Text: "No alerts"}, nil
 		}
 		answer := ""
+		sort.Slice(vals, func(i, j int) bool {
+			return vals[i].Key <= vals[j].Key
+		})
 		for _, v := range vals {
 			answer += v.String() + "\n"
 		}
@@ -75,6 +79,9 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 			return &telegram.Answer{Text: "No alerts"}, nil
 		}
 		answer := ""
+		sort.Slice(vals, func(i, j int) bool {
+			return vals[i].Key <= vals[j].Key
+		})
 		for _, v := range vals {
 			answer += v.String() + "\n"
 		}
