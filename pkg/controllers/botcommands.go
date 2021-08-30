@@ -61,6 +61,7 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 
 func ProcessBotCommands(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg *telegram.Telegram) {
 	msgCh := tlg.Start(10 * time.Second)
+	defer tlg.Stop()
 	errCh := tlg.Errors()
 	log.Printf("Bot commands controller started")
 	for {

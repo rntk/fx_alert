@@ -26,7 +26,6 @@ func main() {
 		log.Panicf("BOT_TOKEN not set")
 	}
 	tlg := telegram.New(token)
-	defer tlg.Stop()
 	qHolder := quoter.NewHolder(quoter.GetAllowedSymbols())
 	ctx, cancelFn := context.WithCancel(context.Background())
 	wg := sync.WaitGroup{}
