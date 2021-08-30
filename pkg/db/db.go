@@ -26,9 +26,10 @@ type DB struct {
 }
 
 type Value struct {
-	Key   string
-	Value float64
-	Type  ValueType
+	Key       string
+	Value     float64
+	Type      ValueType
+	Precision uint8
 }
 
 func (v Value) IsAlert(currentV float64) bool {
@@ -48,10 +49,14 @@ func (v Value) IsAlert(currentV float64) bool {
 }
 
 func (v Value) String() string {
-	return fmt.Sprintf("%s %s %.5f", v.Key, v.Type, v.Value)
+	return fmt.Sprintf("%s %s %s", v.Key, v.Type, v.StringValue())
 }
 
-func (db *DB) Add(ID int64, val Value) error {
+func (v Value) StringValue() string {
+	return strconv.FormatFloat(v.Value, 'f', int(v.Precision), 64)
+}
+
+func (db *DB) Add(ID int64, values []Value) error {
 	db.l.Lock()
 	defer db.l.Unlock()
 	if db.db == nil {
@@ -60,12 +65,15 @@ func (db *DB) Add(ID int64, val Value) error {
 	if db.db[ID] == nil {
 		db.db[ID] = map[string]map[string]ValueType{}
 	}
-	if db.db[ID][val.Key] == nil {
-		db.db[ID][val.Key] = map[string]ValueType{}
-	}
-	v := strconv.FormatFloat(val.Value, 'f', 5, 64)
-	if _, exists := db.db[ID][val.Key][v]; !exists {
-		db.db[ID][val.Key][v] = val.Type
+	for _, val := range values {
+		key := strings.ToUpper(val.Key)
+		if db.db[ID][key] == nil {
+			db.db[ID][key] = map[string]ValueType{}
+		}
+		v := val.StringValue()
+		if _, exists := db.db[ID][key][v]; !exists {
+			db.db[ID][key][v] = val.Type
+		}
 	}
 
 	return db.save()
@@ -89,7 +97,7 @@ func (db *DB) deleteKey(ID int64, key string) {
 	delete(db.db[ID], key)
 }
 
-func (db *DB) DeleteValue(ID int64, key string, value float64) error {
+func (db *DB) DeleteValue(ID int64, val Value) error {
 	db.l.Lock()
 	defer db.l.Unlock()
 	if db.db == nil {
@@ -98,13 +106,13 @@ func (db *DB) DeleteValue(ID int64, key string, value float64) error {
 	if db.db[ID] == nil {
 		return nil
 	}
-	if db.db[ID][key] == nil {
+	if db.db[ID][val.Key] == nil {
 		return nil
 	}
-	v := strconv.FormatFloat(value, 'f', 5, 64)
-	delete(db.db[ID][key], v)
-	if len(db.db[ID][key]) == 0 {
-		db.deleteKey(ID, key)
+	v := val.StringValue()
+	delete(db.db[ID][val.Key], v)
+	if len(db.db[ID][val.Key]) == 0 {
+		db.deleteKey(ID, val.Key)
 	}
 
 	return db.save()
@@ -122,13 +130,18 @@ func (db *DB) List(ID int64) []Value {
 	var lst []Value
 	for k := range db.db[ID] {
 		for rawV := range db.db[ID][k] {
+			parts := strings.Split(rawV, ".")
+			prec := 5
+			if len(parts) > 1 {
+				prec = len(parts[1])
+			}
 			v, err := strconv.ParseFloat(rawV, 64)
 			if err != nil {
 				// TODO: panic or change db scheme?
 				log.Printf("Can't parse float value from base: %q. %v", rawV, err)
 				continue
 			}
-			lst = append(lst, Value{Key: k, Value: v, Type: db.db[ID][k][rawV]})
+			lst = append(lst, Value{Key: k, Value: v, Type: db.db[ID][k][rawV], Precision: uint8(prec)})
 		}
 	}
 

@@ -11,8 +11,7 @@ import (
 	"fx_alert/pkg/telegram"
 )
 
-func ProcessQuotes(ctx context.Context, dbH *db.DB, tlg *telegram.Telegram) {
-	qHolder := quoter.NewHolder(quoter.GetAllowedSymbols())
+func ProcessQuotes(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg *telegram.Telegram) {
 	ticker := time.NewTicker(time.Minute)
 	log.Printf("Quotes controller started")
 	go qHolder.Update(ctx, 2)
@@ -60,7 +59,7 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 					return
 				}
 				log.Printf("Sent alert: %d. %q", ID, msg)
-				if err := dbH.DeleteValue(ID, val.Key, val.Value); err != nil {
+				if err := dbH.DeleteValue(ID, val); err != nil {
 					log.Printf("Can't delete: %d. %q. %v", ID, val.String(), err)
 					return
 				}
@@ -102,7 +101,7 @@ func checkUsersRangeAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 					return
 				}
 				log.Printf("Sent alert: %d. %q", ID, msg)
-				if err := dbH.DeleteValue(ID, val.Key, val.Value); err != nil {
+				if err := dbH.DeleteValue(ID, val); err != nil {
 					log.Printf("Can't delete: %d. %q. %v", ID, val.String(), err)
 					return
 				}

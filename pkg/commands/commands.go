@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"fx_alert/pkg/db"
+	"fx_alert/pkg/quoter"
 	"fx_alert/pkg/telegram"
 )
 
@@ -16,6 +17,7 @@ const (
 	AddValue    CommandType = "/add"
 	DeleteValue CommandType = "/del"
 	ListValues  CommandType = "/ls"
+	DeltaValue  CommandType = "/delta"
 	Help        CommandType = "/help"
 )
 
@@ -28,6 +30,8 @@ func CommandFromString(txt string) (CommandType, error) {
 		return DeleteValue, nil
 	case txt == string(ListValues):
 		return ListValues, nil
+	case strings.HasPrefix(txt, string(DeltaValue)+" "):
+		return DeltaValue, nil
 	case txt == string(Help):
 		return Help, nil
 	}
@@ -38,6 +42,7 @@ func CommandFromString(txt string) (CommandType, error) {
 type CommandValue struct {
 	Command CommandType
 	Value   *db.Value
+	Delta   uint
 }
 
 func Parse(msg string) (*CommandValue, error) {
@@ -83,6 +88,19 @@ func Parse(msg string) (*CommandValue, error) {
 		return cv, nil
 	}
 
+	if cmdT == DeltaValue {
+		v, err := parseDeltaValue(msg)
+		if err != nil {
+			return nil, err
+		}
+		cv := &CommandValue{
+			Command: cmdT,
+			Delta:   v,
+		}
+
+		return cv, nil
+	}
+
 	return nil, errors.New("Unsupported command")
 }
 
@@ -91,7 +109,7 @@ func parseValue(msg string) (*db.Value, error) {
 	if len(parts) != 4 {
 		return nil, errors.New("Unsupported command format")
 	}
-	k := parts[1]
+	k := strings.ToUpper(parts[1])
 	vt, err := db.ValueTypeFromString(parts[2])
 	if err != nil {
 		return nil, fmt.Errorf("Can't parse value type: %w", err)
@@ -103,10 +121,28 @@ func parseValue(msg string) (*db.Value, error) {
 	}
 
 	return &db.Value{
-		Key:   k,
-		Value: v,
-		Type:  vt,
+		Key:       k,
+		Value:     v,
+		Type:      vt,
+		Precision: quoter.GetPrecision(k),
 	}, nil
+}
+
+func parseDeltaValue(msg string) (uint, error) {
+	parts := strings.Split(msg, " ")
+	if len(parts) != 2 {
+		return 0, errors.New("Unsupported command format")
+	}
+	rawVal := strings.ReplaceAll(parts[1], ",", ".")
+	v, err := strconv.ParseInt(rawVal, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("Can't parse delta value: %q. %w", rawVal, err)
+	}
+	if v <= 0 {
+		return 0, errors.New("Delta value must be > 0")
+	}
+
+	return uint(v), nil
 }
 
 func HelpAnswer() *telegram.Answer {

@@ -115,3 +115,15 @@ func worker(ctx context.Context, symbCh <-chan string, resultCh chan<- workerRes
 		}
 	}
 }
+
+func GetPrecision(symbol string) uint8 {
+	symbol = strings.ToUpper(symbol)
+	if strings.Contains(symbol, "JPY") {
+		return 3
+	}
+	if strings.Contains(symbol, "BTC") {
+		return 2
+	}
+
+	return 5
+}
