@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"time"
 
 	"fx_alert/pkg/commands"
@@ -44,7 +45,14 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 		sort.Slice(vals, func(i, j int) bool {
 			return vals[i].Key <= vals[j].Key
 		})
+		var filter string
+		if cmd.Value != nil {
+			filter = strings.ToUpper(cmd.Value.Key)
+		}
 		for _, v := range vals {
+			if (filter != "") && !strings.Contains(v.Key, filter) {
+				continue
+			}
 			curr := 0.0
 			if q, err := qHolder.GetQuote(v.Key); err == nil {
 				curr = q.Close

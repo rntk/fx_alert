@@ -28,7 +28,7 @@ func CommandFromString(txt string) (CommandType, error) {
 		return AddValue, nil
 	case strings.HasPrefix(txt, string(DeleteValue)+" ") || (txt == string(DeleteValue)):
 		return DeleteValue, nil
-	case txt == string(ListValues):
+	case strings.HasPrefix(txt, string(ListValues)+" ") || (txt == string(ListValues)):
 		return ListValues, nil
 	case strings.HasPrefix(txt, string(DeltaValue)+" "):
 		return DeltaValue, nil
@@ -53,7 +53,16 @@ func Parse(msg string) (*CommandValue, error) {
 	}
 
 	if cmdT == ListValues {
-		return &CommandValue{Command: ListValues}, nil
+		if msg == string(ListValues) {
+			return &CommandValue{Command: ListValues}, nil
+		}
+		cv := &CommandValue{
+			Command: cmdT,
+			Value: &db.Value{
+				Key: strings.TrimSpace(strings.TrimPrefix(msg, string(ListValues))),
+			},
+		}
+		return cv, nil
 	}
 	if cmdT == Help {
 		return &CommandValue{Command: Help}, nil
