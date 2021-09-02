@@ -21,6 +21,9 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 	}
 
 	if cmd.Command == commands.AddValue {
+		if !quoter.IsValidSymbol(cmd.Value.Key) {
+			return nil, errors.New("Invalid symbol")
+		}
 		if err := dbH.Add(msg.Chat.ID, []db.Value{*cmd.Value}); err != nil {
 			return nil, fmt.Errorf("Can't add value: %w", err)
 		}
