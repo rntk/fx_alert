@@ -129,6 +129,7 @@ func rbfrx(symbol string) (*Quote, error) {
 	rqst.Header.Add("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.72 Safari/537.36")
 	resp, err := client.Do(rqst)
 	if err != nil {
+		client.CloseIdleConnections()
 		return nil, fmt.Errorf("Can't send request: %q. %w", URL, err)
 	}
 	defer resp.Body.Close()

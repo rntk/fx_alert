@@ -71,6 +71,7 @@ func (t *Telegram) getUpdates() ([]Update, error) {
 		),
 	)
 	if err != nil {
+		t.client.CloseIdleConnections()
 		return nil, err
 	}
 	defer resp.Body.Close()
