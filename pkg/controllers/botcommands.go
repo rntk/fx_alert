@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"sort"
 	"strings"
 
@@ -27,8 +28,20 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 		if err := dbH.Add(msg.Chat.ID, []db.Value{*cmd.Value}); err != nil {
 			return nil, fmt.Errorf("Can't add value: %w", err)
 		}
+		diff := ""
+		q, err := qHolder.GetQuote(cmd.Value.Key)
+		if err != nil {
+			log.Printf("Can't get diff for: %q. %v", cmd.Value.Key, err)
+		}
+		if err == nil {
+			diff = fmt.Sprintf(
+				"Diff: %.5f \nCurrent: %.5f",
+				math.Abs(q.Close-cmd.Value.Value),
+				q.Close,
+			)
+		}
 
-		return &telegram.Answer{Text: "Added: " + msg.Text}, nil
+		return &telegram.Answer{Text: fmt.Sprintf("Added: %s \n%s", msg.Text, diff)}, nil
 	}
 
 	if cmd.Command == commands.DeleteValue {
