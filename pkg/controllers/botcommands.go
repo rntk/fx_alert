@@ -7,7 +7,6 @@ import (
 	"log"
 	"sort"
 	"strings"
-	"time"
 
 	"fx_alert/pkg/commands"
 	"fx_alert/pkg/db"
@@ -71,30 +70,31 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 }
 
 func ProcessBotCommands(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg *telegram.Telegram) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
 	log.Printf("Bot commands controller started")
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			upds, err := tlg.GetUpdates()
+		default:
+			break
+		}
+		log.Println("[DEBUG] Telegram: wait updates")
+		upds, err := tlg.GetUpdates(true)
+		log.Println("[DEBUG] Telegram: got updates")
+		if err != nil {
+			log.Printf("Can't get update: %v", err)
+			break
+		}
+		for _, upd := range upds {
+			msg := upd.Message
+			log.Printf("Got message: %v", msg)
+			answer, err := processCommand(dbH, qHolder, msg)
 			if err != nil {
-				log.Printf("Can't get update: %v", err)
-				break
+				answer = &telegram.Answer{Text: "Can't process command"}
+				log.Printf("Can't process command: %q. %v", msg.Text, err)
 			}
-			for _, upd := range upds {
-				msg := upd.Message
-				log.Printf("Got message: %v", msg)
-				answer, err := processCommand(dbH, qHolder, msg)
-				if err != nil {
-					answer = &telegram.Answer{Text: "Can't process command"}
-					log.Printf("Can't process command: %q. %v", msg.Text, err)
-				}
-				if err := tlg.SendMessage(msg.Chat.ID, msg.MessageID, *answer); err != nil {
-					log.Printf("Can't send message: %v. %v", answer, err)
-				}
+			if err := tlg.SendMessage(msg.Chat.ID, msg.MessageID, *answer); err != nil {
+				log.Printf("Can't send message: %v. %v", answer, err)
 			}
 		}
 	}

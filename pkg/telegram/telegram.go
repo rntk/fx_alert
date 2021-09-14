@@ -46,10 +46,10 @@ type Telegram struct {
 	client       *http.Client
 }
 
-func (t *Telegram) GetUpdates() ([]Update, error) {
+func (t *Telegram) GetUpdates(longPoll bool) ([]Update, error) {
 	t.m.Lock()
 	defer t.m.Unlock()
-	upds, err := t.getUpdates()
+	upds, err := t.getUpdates(longPoll)
 	if err != nil {
 		return nil, fmt.Errorf("Can't get updates. Offset: %d. %w", t.lastUpdateID, err)
 	}
@@ -61,13 +61,20 @@ func (t *Telegram) GetUpdates() ([]Update, error) {
 	return upds, nil
 }
 
-func (t *Telegram) getUpdates() ([]Update, error) {
-	resp, err := t.client.Get(
+func (t *Telegram) getUpdates(longPoll bool) ([]Update, error) {
+	client := t.client
+	timeout := ""
+	if longPoll {
+		client = http.DefaultClient
+		timeout = "&timeout=600"
+	}
+	resp, err := client.Get(
 		fmt.Sprintf(
-			"%s/bot%s/getUpdates?offset=%d",
+			"%s/bot%s/getUpdates?offset=%d%s",
 			apiURL,
 			t.token,
 			t.lastUpdateID+1,
+			timeout,
 		),
 	)
 	if err != nil {
