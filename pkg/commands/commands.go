@@ -161,6 +161,8 @@ Add: %s EURUSD %s 1.2550
 Delete: %s EURUSD %s 1.2550
 Keyboard delete: %s
 List: %s
+List: %s usd
+Delta: %s 500
 Help: %s
 `,
 		AddValue,
@@ -169,6 +171,8 @@ Help: %s
 		db.BelowCurrent,
 		DeleteValue,
 		ListValues,
+		ListValues,
+		DeltaValue,
 		Help,
 	)
 
