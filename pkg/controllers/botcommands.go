@@ -79,11 +79,11 @@ func ProcessBotCommands(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder,
 			break
 		}
 		log.Println("[DEBUG] Telegram: wait updates")
-		upds, err := tlg.GetUpdates(true)
+		upds, err := tlg.GetUpdates(ctx, true)
 		log.Println("[DEBUG] Telegram: got updates")
 		if err != nil {
 			log.Printf("Can't get update: %v", err)
-			break
+			continue
 		}
 		for _, upd := range upds {
 			msg := upd.Message

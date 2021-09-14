@@ -1,10 +1,12 @@
 package telegram
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -40,16 +42,18 @@ type Chat struct {
 }
 
 type Telegram struct {
-	m            sync.Mutex
-	token        string
-	lastUpdateID int64
-	client       *http.Client
+	m               sync.Mutex
+	token           string
+	lastUpdateID    int64
+	client          *http.Client
+	longPollClient  *http.Client
+	longPollTimeout uint
 }
 
-func (t *Telegram) GetUpdates(longPoll bool) ([]Update, error) {
+func (t *Telegram) GetUpdates(ctx context.Context, longPoll bool) ([]Update, error) {
 	t.m.Lock()
 	defer t.m.Unlock()
-	upds, err := t.getUpdates(longPoll)
+	upds, err := t.getUpdates(ctx, longPoll)
 	if err != nil {
 		return nil, fmt.Errorf("Can't get updates. Offset: %d. %w", t.lastUpdateID, err)
 	}
@@ -61,24 +65,27 @@ func (t *Telegram) GetUpdates(longPoll bool) ([]Update, error) {
 	return upds, nil
 }
 
-func (t *Telegram) getUpdates(longPoll bool) ([]Update, error) {
+func (t *Telegram) getUpdates(ctx context.Context, longPoll bool) ([]Update, error) {
 	client := t.client
 	timeout := ""
 	if longPoll {
-		client = http.DefaultClient
-		timeout = "&timeout=600"
+		client = t.longPollClient
+		timeout = "&timeout=" + strconv.FormatInt(int64(t.longPollTimeout), 10)
 	}
-	resp, err := client.Get(
-		fmt.Sprintf(
-			"%s/bot%s/getUpdates?offset=%d%s",
-			apiURL,
-			t.token,
-			t.lastUpdateID+1,
-			timeout,
-		),
+	URL := fmt.Sprintf(
+		"%s/bot%s/getUpdates?offset=%d%s",
+		apiURL,
+		t.token,
+		t.lastUpdateID+1,
+		timeout,
 	)
+	rq, err := http.NewRequest(http.MethodGet, URL, nil)
 	if err != nil {
-		t.client.CloseIdleConnections()
+		return nil, fmt.Errorf("Can`t create request: %w", err)
+	}
+	resp, err := client.Do(rq.WithContext(ctx))
+	if err != nil {
+		client.CloseIdleConnections()
 		return nil, err
 	}
 	defer resp.Body.Close()
@@ -98,9 +105,12 @@ func (t *Telegram) getUpdates(longPoll bool) ([]Update, error) {
 }
 
 func New(token string) *Telegram {
+	longPollSeconds := 60
 	return &Telegram{
-		m:      sync.Mutex{},
-		token:  token,
-		client: &http.Client{Timeout: 5 * time.Second},
+		m:               sync.Mutex{},
+		token:           token,
+		longPollTimeout: uint(longPollSeconds),
+		client:          &http.Client{Timeout: 5 * time.Second},
+		longPollClient:  &http.Client{Timeout: time.Duration(longPollSeconds+5) * time.Second},
 	}
 }

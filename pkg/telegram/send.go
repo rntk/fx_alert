@@ -45,6 +45,7 @@ func (t *Telegram) SendMessage(chatID int64, msgID int64, answer Answer) error {
 		form,
 	)
 	if err != nil {
+		t.client.CloseIdleConnections()
 		return fmt.Errorf("Can't send message: %w", err)
 	}
 	defer resp.Body.Close()
