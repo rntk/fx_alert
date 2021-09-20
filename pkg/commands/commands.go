@@ -42,7 +42,6 @@ func CommandFromString(txt string) (CommandType, error) {
 type CommandValue struct {
 	Command CommandType
 	Value   *db.Value
-	Delta   uint
 }
 
 func Parse(msg string) (*CommandValue, error) {
@@ -104,7 +103,7 @@ func Parse(msg string) (*CommandValue, error) {
 		}
 		cv := &CommandValue{
 			Command: cmdT,
-			Delta:   v,
+			Value:   v,
 		}
 
 		return cv, nil
@@ -137,21 +136,30 @@ func parseValue(msg string) (*db.Value, error) {
 	}, nil
 }
 
-func parseDeltaValue(msg string) (uint, error) {
+func parseDeltaValue(msg string) (*db.Value, error) {
 	parts := strings.Split(msg, " ")
-	if len(parts) != 2 {
-		return 0, errors.New("Unsupported command format")
+	ln := len(parts)
+	if (ln != 2) && (ln != 3) {
+		return nil, errors.New("Unsupported command format")
 	}
-	rawVal := strings.ReplaceAll(parts[1], ",", ".")
+	var rawVal string
+	var k string
+	if ln == 2 {
+		rawVal = parts[1]
+	} else {
+		rawVal = parts[2]
+		k = parts[1]
+	}
+	rawVal = strings.ReplaceAll(rawVal, ",", ".")
 	v, err := strconv.ParseInt(rawVal, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("Can't parse delta value: %q. %w", rawVal, err)
+		return nil, fmt.Errorf("Can't parse delta value: %q. %w", rawVal, err)
 	}
 	if v <= 0 {
-		return 0, errors.New("Delta value must be > 0")
+		return nil, errors.New("Delta value must be > 0")
 	}
 
-	return uint(v), nil
+	return &db.Value{Key: k, Value: float64(v)}, nil
 }
 
 func HelpAnswer() *telegram.Answer {

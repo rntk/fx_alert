@@ -26,7 +26,7 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 	}
 
 	if cmd.Command == commands.DeleteValue {
-		return processDeleteCommand(dbH, msg, *cmd)
+		return processDelete(dbH, msg, *cmd)
 	}
 
 	if cmd.Command == commands.ListValues {
@@ -71,7 +71,7 @@ func ProcessBotCommands(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder,
 	}
 }
 
-func processDeleteCommand(dbH *db.DB, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
+func processDelete(dbH *db.DB, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
 	if cmd.Value == nil {
 		vals := dbH.List(msg.Chat.ID)
 		if len(vals) == 0 {
@@ -101,14 +101,20 @@ func processDeleteCommand(dbH *db.DB, msg telegram.Message, cmd commands.Command
 }
 
 func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
-	if cmd.Delta <= 0 {
+	if cmd.Value == nil {
+		return nil, errors.New("No delta value")
+	}
+	if cmd.Value.Value <= 0 {
 		return nil, errors.New("Delta must be > 0")
 	}
 	symbols := quoter.GetAllowedSymbols()
 	var answer string
 	var levels []db.Value
 	for _, symb := range symbols {
-		d := float64(cmd.Delta)
+		if (cmd.Value.Key != "") && !strings.EqualFold(cmd.Value.Key, symb) {
+			continue
+		}
+		d := cmd.Value.Value
 		prec := quoter.GetPrecision(symb)
 		q, err := qHolder.GetQuote(symb)
 		if err != nil {
@@ -133,12 +139,16 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 			Type:      db.AboveCurrent,
 		})
 	}
-	if err := dbH.Add(msg.Chat.ID, levels); err != nil {
-		msg := fmt.Sprintf("Can't save db: %v\n", err)
-		log.Printf("[ERROR] %s", msg)
-		answer += msg
+	if len(levels) > 0 {
+		if err := dbH.Add(msg.Chat.ID, levels); err != nil {
+			msg := fmt.Sprintf("Can't save db: %v\n", err)
+			log.Printf("[ERROR] %s", msg)
+			answer += msg
+		}
+		answer = "Added levels: " + msg.Text + "\n" + answer
+	} else {
+		answer = "Symbol is not allowed: " + msg.Text
 	}
-	answer = "Added levels: " + msg.Text + "\n" + answer
 
 	return &telegram.Answer{Text: answer}, nil
 }
