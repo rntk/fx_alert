@@ -22,26 +22,7 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 	}
 
 	if cmd.Command == commands.AddValue {
-		if !quoter.IsValidSymbol(cmd.Value.Key) {
-			return nil, errors.New("Invalid symbol")
-		}
-		if err := dbH.Add(msg.Chat.ID, []db.Value{*cmd.Value}); err != nil {
-			return nil, fmt.Errorf("Can't add value: %w", err)
-		}
-		diff := ""
-		q, err := qHolder.GetQuote(cmd.Value.Key)
-		if err != nil {
-			log.Printf("Can't get diff for: %q. %v", cmd.Value.Key, err)
-		}
-		if err == nil {
-			diff = fmt.Sprintf(
-				"Diff: %.5f \nCurrent: %.5f",
-				math.Abs(q.Close-cmd.Value.Value),
-				q.Close,
-			)
-		}
-
-		return &telegram.Answer{Text: fmt.Sprintf("Added: %s \n%s", msg.Text, diff)}, nil
+		return processAddValue(dbH, qHolder, msg, *cmd)
 	}
 
 	if cmd.Command == commands.DeleteValue {
@@ -49,30 +30,7 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 	}
 
 	if cmd.Command == commands.ListValues {
-		vals := dbH.List(msg.Chat.ID)
-		if len(vals) == 0 {
-			return &telegram.Answer{Text: "No alerts"}, nil
-		}
-		answer := ""
-		sort.Slice(vals, func(i, j int) bool {
-			return vals[i].Key <= vals[j].Key
-		})
-		var filter string
-		if cmd.Value != nil {
-			filter = strings.ToUpper(cmd.Value.Key)
-		}
-		for _, v := range vals {
-			if (filter != "") && !strings.Contains(v.Key, filter) {
-				continue
-			}
-			curr := 0.0
-			if q, err := qHolder.GetQuote(v.Key); err == nil {
-				curr = q.Close
-			}
-			answer += fmt.Sprintf("%s (%.5f) \n", v.String(), curr)
-		}
-
-		return &telegram.Answer{Text: answer}, nil
+		return processListValues(dbH, qHolder, msg, *cmd)
 	}
 
 	if cmd.Command == commands.DeltaValue {
@@ -183,4 +141,54 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 	answer = "Added levels: " + msg.Text + "\n" + answer
 
 	return &telegram.Answer{Text: answer}, nil
+}
+
+func processListValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
+	vals := dbH.List(msg.Chat.ID)
+	if len(vals) == 0 {
+		return &telegram.Answer{Text: "No alerts"}, nil
+	}
+	answer := ""
+	sort.Slice(vals, func(i, j int) bool {
+		return vals[i].Key <= vals[j].Key
+	})
+	var filter string
+	if cmd.Value != nil {
+		filter = strings.ToUpper(cmd.Value.Key)
+	}
+	for _, v := range vals {
+		if (filter != "") && !strings.Contains(v.Key, filter) {
+			continue
+		}
+		curr := 0.0
+		if q, err := qHolder.GetQuote(v.Key); err == nil {
+			curr = q.Close
+		}
+		answer += fmt.Sprintf("%s (%.5f) \n", v.String(), curr)
+	}
+
+	return &telegram.Answer{Text: answer}, nil
+}
+
+func processAddValue(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
+	if !quoter.IsValidSymbol(cmd.Value.Key) {
+		return nil, errors.New("Invalid symbol")
+	}
+	if err := dbH.Add(msg.Chat.ID, []db.Value{*cmd.Value}); err != nil {
+		return nil, fmt.Errorf("Can't add value: %w", err)
+	}
+	diff := ""
+	q, err := qHolder.GetQuote(cmd.Value.Key)
+	if err != nil {
+		log.Printf("Can't get diff for: %q. %v", cmd.Value.Key, err)
+	}
+	if err == nil {
+		diff = fmt.Sprintf(
+			"Diff: %.5f \nCurrent: %.5f",
+			math.Abs(q.Close-cmd.Value.Value),
+			q.Close,
+		)
+	}
+
+	return &telegram.Answer{Text: fmt.Sprintf("Added: %s \n%s", msg.Text, diff)}, nil
 }
