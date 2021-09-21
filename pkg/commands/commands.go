@@ -19,6 +19,8 @@ const (
 	ListValues  CommandType = "/ls"
 	DeltaValue  CommandType = "/delta"
 	Help        CommandType = "/help"
+
+	NoValue = -1
 )
 
 func CommandFromString(txt string) (CommandType, error) {
@@ -83,6 +85,16 @@ func Parse(msg string) (*CommandValue, error) {
 	if cmdT == DeleteValue {
 		if msg == string(DeleteValue) {
 			return &CommandValue{Command: DeleteValue}, nil
+		}
+		if strings.Count(msg, " ") == 1 {
+			cv := &CommandValue{
+				Command: cmdT,
+				Value: &db.Value{
+					Key:   strings.TrimSpace(strings.TrimPrefix(msg, string(DeleteValue))),
+					Value: NoValue,
+				},
+			}
+			return cv, nil
 		}
 		v, err := parseValue(msg)
 		if err != nil {

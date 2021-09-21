@@ -93,6 +93,23 @@ func processDelete(dbH *db.DB, msg telegram.Message, cmd commands.CommandValue) 
 
 		return &telegram.Answer{Text: "Select: ", ReplyKeyboard: rk}, nil
 	}
+	if cmd.Value.Value == commands.NoValue {
+		lst := dbH.List(msg.Chat.ID)
+		k := strings.ToUpper(cmd.Value.Key)
+		var deleted string
+		for _, v := range lst {
+			if !strings.Contains(strings.ToUpper(v.Key), k) {
+				continue
+			}
+			if err := dbH.DeleteKey(msg.Chat.ID, v.Key); err != nil {
+				deleted += "\n Can't delete: " + v.String()
+				continue
+			}
+			deleted += "\n" + v.String()
+		}
+
+		return &telegram.Answer{Text: "Deleted: " + msg.Text + "\n" + deleted}, nil
+	}
 	if err := dbH.DeleteValue(msg.Chat.ID, *cmd.Value); err != nil {
 		return nil, fmt.Errorf("Can't delete value: %w", err)
 	}
