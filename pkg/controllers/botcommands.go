@@ -193,6 +193,9 @@ func processListValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message,
 		}
 		answer += fmt.Sprintf("%s (%.5f) \n", v.String(), curr)
 	}
+	if answer == "" {
+		answer = "No alerts"
+	}
 
 	return &telegram.Answer{Text: answer}, nil
 }
