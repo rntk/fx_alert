@@ -26,7 +26,6 @@ func ProcessQuotes(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg 
 		case <-levelTicker.C:
 			qHolder.Update(ctx, 2)
 			checkUsersLevelAlerts(ctx, dbH, qHolder, tlg)
-			checkMomentum(ctx, dbH, qHolder, tlg)
 		case <-momentumTicker.C:
 			qHolder.Update(ctx, 2)
 			checkMomentum(ctx, dbH, qHolder, tlg)
