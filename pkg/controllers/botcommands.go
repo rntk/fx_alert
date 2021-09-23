@@ -140,8 +140,10 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 			log.Printf("[ERROR] Can't add delta value %s", msg)
 			continue
 		}
-		for i := 0; i < int(prec); i++ {
-			d /= 10
+		if !strings.EqualFold(symb, "btcusd") {
+			for i := 0; i < int(prec); i++ {
+				d /= 10
+			}
 		}
 		levels = append(levels, db.Value{
 			Key:       symb,
