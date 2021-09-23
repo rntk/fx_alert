@@ -133,7 +133,7 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 		}
 		d := cmd.Value.Value
 		prec := quoter.GetPrecision(symb)
-		q, err := qHolder.GetQuote(symb)
+		q, err := qHolder.GetCurrentQuote(symb)
 		if err != nil {
 			msg := fmt.Sprintf("Can`t add delta for: %q. %v\n", symb, err)
 			answer += msg
@@ -188,7 +188,7 @@ func processListValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message,
 			continue
 		}
 		curr := 0.0
-		if q, err := qHolder.GetQuote(v.Key); err == nil {
+		if q, err := qHolder.GetCurrentQuote(v.Key); err == nil {
 			curr = q.Close
 		}
 		answer += fmt.Sprintf("%s (%.5f) \n", v.String(), curr)
@@ -208,7 +208,7 @@ func processAddValue(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message, c
 		return nil, fmt.Errorf("Can't add value: %w", err)
 	}
 	diff := ""
-	q, err := qHolder.GetQuote(cmd.Value.Key)
+	q, err := qHolder.GetCurrentQuote(cmd.Value.Key)
 	if err != nil {
 		log.Printf("Can't get diff for: %q. %v", cmd.Value.Key, err)
 	}

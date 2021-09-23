@@ -43,7 +43,7 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 			default:
 				break
 			}
-			q, err := qHolder.GetQuote(val.Key)
+			q, err := qHolder.GetCurrentQuote(val.Key)
 			if err != nil {
 				log.Printf("Can't get quotes for: %d. %q. %v", ID, val.Key, err)
 				continue

@@ -14,15 +14,20 @@ type workerRes struct {
 	err error
 }
 
+type Quotes struct {
+	Previous Quote
+	Current  Quote
+}
+
 type Holder struct {
 	m         sync.RWMutex
-	db        map[string]*Quote
+	db        map[string]*Quotes
 	lasUpdate time.Time
 }
 
 func NewHolder(symbols []string) *Holder {
 	h := Holder{
-		db: map[string]*Quote{},
+		db: map[string]*Quotes{},
 	}
 	for _, symb := range symbols {
 		symb = strings.ToUpper(symb)
@@ -62,7 +67,17 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 			recvQuN++
 			if wRes.err == nil {
 				wRes.q.Symbol = strings.ToUpper(wRes.q.Symbol)
-				h.db[wRes.q.Symbol] = &wRes.q
+				qs := h.db[wRes.q.Symbol]
+				if qs == nil {
+					qs = &Quotes{
+						Previous: wRes.q,
+						Current:  wRes.q,
+					}
+				} else {
+					qs.Previous = qs.Current
+					qs.Current = wRes.q
+				}
+				h.db[wRes.q.Symbol] = qs
 				log.Printf("Gor quote: %v", wRes.q)
 			} else {
 				log.Printf("[ERROR] Can't fetch quote: %q. %v", wRes.q.Symbol, wRes.err)
@@ -78,20 +93,40 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 }
 
 // GetQuote return quote by symbol.
-func (h *Holder) GetQuote(symbol string) (*Quote, error) {
+func (h *Holder) GetQuote(symbol string) (*Quotes, error) {
 	h.m.RLock()
 	defer h.m.RUnlock()
 	symbol = strings.ToUpper(symbol)
-	q, exist := h.db[symbol]
+	qs, exist := h.db[symbol]
 	if !exist {
 		return nil, ErrNotAllowed
 	}
-	if q == nil {
+	if qs == nil {
 		return nil, ErrNoQuote
 	}
-	rq := *q
+	rq := *qs
 
 	return &rq, nil
+}
+
+// GetCurrentQuote return current quote.
+func (h *Holder) GetCurrentQuote(symbol string) (*Quote, error) {
+	qs, err := h.GetQuote(symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	return &qs.Current, nil
+}
+
+// GetPreviousQuote return previouse quote.
+func (h *Holder) GetPreviousQuote(symbol string) (*Quote, error) {
+	qs, err := h.GetQuote(symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	return &qs.Previous, nil
 }
 
 func worker(ctx context.Context, symbCh <-chan string, resultCh chan<- workerRes) {
