@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"math"
 	"strings"
 	"time"
 
@@ -98,7 +99,7 @@ func checkMomentum(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg 
 				continue
 			}
 			diff := qs.Current.Close - qs.Previous.Close
-			points := diff
+			points := math.Abs(diff)
 			if strings.EqualFold(symb, "btcusd") && (points < 500) {
 				continue
 			}
