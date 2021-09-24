@@ -26,7 +26,7 @@ func processCommand(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message) (*
 	}
 
 	if cmd.Command == commands.DeleteValue {
-		return processDelete(dbH, msg, *cmd)
+		return processDeleteValues(dbH, msg, *cmd)
 	}
 
 	if cmd.Command == commands.ListValues {
@@ -71,7 +71,7 @@ func ProcessBotCommands(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder,
 	}
 }
 
-func processDelete(dbH *db.DB, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
+func processDeleteValues(dbH *db.DB, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
 	if cmd.Value == nil {
 		vals := dbH.List(msg.Chat.ID)
 		if len(vals) == 0 {
@@ -193,7 +193,8 @@ func processListValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message,
 		if q, err := qHolder.GetCurrentQuote(v.Key); err == nil {
 			curr = q.Close
 		}
-		answer += fmt.Sprintf("%s (%.5f) \n", v.String(), curr)
+		diff := math.Abs(curr - v.Value)
+		answer += fmt.Sprintf("%s (%.5f) (%.5f) \n", v.String(), curr, diff)
 	}
 	if answer == "" {
 		answer = "No alerts"
