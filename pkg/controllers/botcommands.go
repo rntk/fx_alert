@@ -209,18 +209,20 @@ func processAddValue(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message, c
 	if err := dbH.Add(msg.Chat.ID, []db.Value{*cmd.Value}); err != nil {
 		return nil, fmt.Errorf("Can't add value: %w", err)
 	}
-	diff := ""
+	diffS := ""
 	q, err := qHolder.GetCurrentQuote(cmd.Value.Key)
 	if err != nil {
 		log.Printf("Can't get diff for: %q. %v", cmd.Value.Key, err)
 	}
 	if err == nil {
-		diff = fmt.Sprintf(
-			"Diff: %.5f \nCurrent: %.5f",
-			math.Abs(q.Close-cmd.Value.Value),
+		diff := math.Abs(q.Close - cmd.Value.Value)
+		diffS = fmt.Sprintf(
+			"Diff: %.5f (%d) \nCurrent: %.5f",
+			diff,
+			quoter.ToPoints(cmd.Value.Key, diff),
 			q.Close,
 		)
 	}
 
-	return &telegram.Answer{Text: fmt.Sprintf("Added: %s \n%s", msg.Text, diff)}, nil
+	return &telegram.Answer{Text: fmt.Sprintf("Added: %s \n%s", msg.Text, diffS)}, nil
 }
