@@ -99,20 +99,16 @@ func checkMomentum(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg 
 				continue
 			}
 			diff := qs.Current.Close - qs.Previous.Close
-			points := math.Abs(diff)
+			points := quoter.ToPoints(symb, math.Abs(diff))
 			if strings.EqualFold(symb, "btcusd") && (points < 500) {
 				continue
-			}
-			p := quoter.GetPrecision(symb)
-			for i := uint8(0); i < p; i++ {
-				points *= 10
 			}
 			if points < 50 {
 				continue
 			}
-			go func(ID int64, symb string, diff, points float64, qs *quoter.Quotes) {
+			go func(ID int64, symb string, diff float64, points int64, qs *quoter.Quotes) {
 				msg := fmt.Sprintf(
-					"Alert: %s. \nDiff: %.0f (%.5f)\nPrevious: %.5f\nCurrent: %.5f",
+					"Alert: %s. \nDiff: %d (%.5f)\nPrevious: %.5f\nCurrent: %.5f",
 					symb,
 					points,
 					diff,

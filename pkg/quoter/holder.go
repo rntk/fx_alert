@@ -162,3 +162,29 @@ func GetPrecision(symbol string) uint8 {
 
 	return 5
 }
+
+func ToPoints(symbol string, diff float64) int64 {
+	if strings.EqualFold(symbol, "btcusd") {
+		return int64(diff)
+	}
+	prec := GetPrecision(symbol)
+
+	for i := 0; i < int(prec); i++ {
+		diff *= 10
+	}
+
+	return int64(diff)
+}
+
+func FromPoints(symbol string, points int64) float64 {
+	if strings.EqualFold(symbol, "btcusd") {
+		return float64(points)
+	}
+	prec := GetPrecision(symbol)
+	p := float64(points)
+	for i := 0; i < int(prec); i++ {
+		p /= 10
+	}
+
+	return p
+}

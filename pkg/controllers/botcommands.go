@@ -131,7 +131,6 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 		if (cmd.Value.Key != "") && !strings.EqualFold(cmd.Value.Key, symb) {
 			continue
 		}
-		d := cmd.Value.Value
 		prec := quoter.GetPrecision(symb)
 		q, err := qHolder.GetCurrentQuote(symb)
 		if err != nil {
@@ -140,11 +139,7 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 			log.Printf("[ERROR] Can't add delta value %s", msg)
 			continue
 		}
-		if !strings.EqualFold(symb, "btcusd") {
-			for i := 0; i < int(prec); i++ {
-				d /= 10
-			}
-		}
+		d := quoter.FromPoints(symb, int64(cmd.Value.Value))
 		levels = append(levels, db.Value{
 			Key:       symb,
 			Value:     q.Close + d,
@@ -193,8 +188,12 @@ func processListValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message,
 		if q, err := qHolder.GetCurrentQuote(v.Key); err == nil {
 			curr = q.Close
 		}
-		diff := math.Abs(curr - v.Value)
-		answer += fmt.Sprintf("%s (%.5f) (%.5f) \n", v.String(), curr, diff)
+		answer += fmt.Sprintf(
+			"%s (%.5f) (%d) \n",
+			v.String(),
+			curr,
+			quoter.ToPoints(v.Key, math.Abs(curr-v.Value)),
+		)
 	}
 	if answer == "" {
 		answer = "No alerts"
