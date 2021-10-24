@@ -16,6 +16,7 @@ import (
 
 func main() {
 	dbPath := flag.String("db", "db.json", "path to database")
+	flag.Parse()
 	dbH, err := db.New(*dbPath, true)
 	if err != nil {
 		log.Panicf("Can't create database: %v. %v", dbPath, err)
