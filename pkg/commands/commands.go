@@ -179,20 +179,28 @@ func parseDeltaValue(msg string) (*db.Value, error) {
 func HelpAnswer() *telegram.Answer {
 	answer := fmt.Sprintf(
 		`
-Add: %s EURUSD %s 1.2550
-Delete: %s EURUSD %s 1.2550
-Keyboard delete: %s
-List: %s
-List: %s usd
-Delta: %s 500
-Help: %s
+Add: %[3]s EURUSD %[1]s 1.2550
+
+Delete: %[4]s EURUSD %[2]s 1.2550
+Delete: %[4]s EURUSD
+Delete: %[4]s EUR
+Delete: %[4]s *
+
+Keyboard delete: %[4]s
+
+List: %[5]s
+List: %[5]s USD
+
+Delta: %[6]s USDJPY 500
+Delta: %[6]s USD 500
+Delta: %[6]s 500
+
+Help: %[7]s
 `,
-		AddValue,
 		db.AboveCurrent,
-		DeleteValue,
 		db.BelowCurrent,
+		AddValue,
 		DeleteValue,
-		ListValues,
 		ListValues,
 		DeltaValue,
 		Help,
