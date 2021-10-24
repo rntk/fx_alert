@@ -98,8 +98,10 @@ func processDeleteValues(dbH *db.DB, msg telegram.Message, cmd commands.CommandV
 		k := strings.ToUpper(cmd.Value.Key)
 		var deleted string
 		for _, v := range lst {
-			if !strings.Contains(strings.ToUpper(v.Key), k) {
-				continue
+			if k != commands.AnySymbol {
+				if !strings.Contains(strings.ToUpper(v.Key), k) {
+					continue
+				}
 			}
 			if err := dbH.DeleteKey(msg.Chat.ID, v.Key); err != nil {
 				deleted += "\n Can't delete: " + v.String()

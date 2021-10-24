@@ -21,6 +21,8 @@ const (
 	Help        CommandType = "/help"
 
 	NoValue = -1
+
+	AnySymbol = "*"
 )
 
 func CommandFromString(txt string) (CommandType, error) {
