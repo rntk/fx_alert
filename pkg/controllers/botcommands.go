@@ -127,8 +127,9 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 	symbols := quoter.GetAllowedSymbols()
 	var answer string
 	var levels []db.Value
+	lk := strings.ToLower(cmd.Value.Key)
 	for _, symb := range symbols {
-		if (cmd.Value.Key != "") && !strings.EqualFold(cmd.Value.Key, symb) {
+		if (cmd.Value.Key != "") && !strings.Contains(strings.ToLower(symb), lk) {
 			continue
 		}
 		prec := quoter.GetPrecision(symb)
