@@ -40,6 +40,11 @@ func main() {
 		defer wg.Done()
 		controllers.ProcessQuotes(ctx, dbH, qHolder, tlg)
 	}()
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		controllers.ProcessPatterns(ctx, dbH, qHolder, tlg)
+	}()
 	stopCh := make(chan os.Signal, 1)
 	signal.Notify(stopCh, os.Interrupt)
 	<-stopCh
