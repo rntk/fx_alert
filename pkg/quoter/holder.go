@@ -89,7 +89,8 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 				if _, exist := h.series[wRes.q.Symbol]; !exist {
 					h.series[wRes.q.Symbol] = map[int]Quote{}
 				}
-				if q, exist := h.series[wRes.q.Symbol][hour]; exist {
+				q, exist := h.series[wRes.q.Symbol][hour]
+				if exist {
 					if q.High < wRes.q.Close {
 						q.High = wRes.q.Close
 					}
@@ -97,7 +98,6 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 						q.Low = wRes.q.Close
 					}
 					q.Close = wRes.q.Close
-					h.series[wRes.q.Symbol][hour] = q
 				} else {
 					q = Quote{
 						Symbol: wRes.q.Symbol,
@@ -106,8 +106,8 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 						Open:   wRes.q.Close,
 						Close:  wRes.q.Close,
 					}
-					h.series[wRes.q.Symbol][hour] = q
 				}
+				h.series[wRes.q.Symbol][hour] = q
 				h.db[wRes.q.Symbol] = qs
 				log.Printf("Gor quote: %v", wRes.q)
 			} else {
