@@ -22,12 +22,14 @@ type Quotes struct {
 type Holder struct {
 	m         sync.RWMutex
 	db        map[string]*Quotes
+	series    map[string]map[int]Quote
 	lasUpdate time.Time
 }
 
 func NewHolder(symbols []string) *Holder {
 	h := Holder{
-		db: map[string]*Quotes{},
+		db:     map[string]*Quotes{},
+		series: map[string]map[int]Quote{},
 	}
 	for _, symb := range symbols {
 		symb = strings.ToUpper(symb)
@@ -66,6 +68,12 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 		case wRes := <-quCh:
 			recvQuN++
 			if wRes.err == nil {
+				if h.db == nil {
+					h.db = map[string]*Quotes{}
+				}
+				if h.series == nil {
+					h.series = map[string]map[int]Quote{}
+				}
 				wRes.q.Symbol = strings.ToUpper(wRes.q.Symbol)
 				qs := h.db[wRes.q.Symbol]
 				if qs == nil {
@@ -76,6 +84,16 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 				} else {
 					qs.Previous = qs.Current
 					qs.Current = wRes.q
+				}
+				hour := CurrentHour(time.Now())
+				if _, exist := h.series[wRes.q.Symbol]; !exist {
+					h.series[wRes.q.Symbol] = map[int]Quote{}
+				}
+				if q, exist := h.series[wRes.q.Symbol][hour]; exist {
+					q.Close = wRes.q.Close
+					h.series[wRes.q.Symbol][hour] = q
+				} else {
+					h.series[wRes.q.Symbol][hour] = wRes.q
 				}
 				h.db[wRes.q.Symbol] = qs
 				log.Printf("Gor quote: %v", wRes.q)
@@ -107,6 +125,20 @@ func (h *Holder) GetQuote(symbol string) (*Quotes, error) {
 	rq := *qs
 
 	return &rq, nil
+}
+
+func (h *Holder) GetQuoteByHour(symbol string, hour int) (*Quote, error) {
+	h.m.RLock()
+	defer h.m.RUnlock()
+	if _, exist := h.series[symbol]; !exist {
+		return nil, ErrNoQuote
+	}
+	q, exist := h.series[symbol][hour]
+	if !exist {
+		return nil, ErrNoQuote
+	}
+
+	return &q, nil
 }
 
 // GetCurrentQuote return current quote.
@@ -187,4 +219,18 @@ func FromPoints(symbol string, points int64) float64 {
 	}
 
 	return p
+}
+
+func CurrentHour(t time.Time) int {
+	return t.UTC().Hour()
+}
+
+func PreviousHour(t time.Time) int {
+	h := CurrentHour(t)
+	h -= 1
+	if h < 0 {
+		h = 23
+	}
+
+	return h
 }
