@@ -30,8 +30,9 @@ func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tl
 			}
 			symbols := quoter.GetAllowedSymbols()
 			var msgs []string
+			hour := quoter.PreviousHour(t)
 			for _, sym := range symbols {
-				q, err := qHolder.GetPreviousQuote(sym)
+				q, err := qHolder.GetQuoteByHour(sym, hour)
 				if err != nil {
 					continue
 				}
