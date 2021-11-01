@@ -15,8 +15,9 @@ import (
 
 func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg *telegram.Telegram) {
 	log.Printf("Patterns controller started")
-	ticker := time.NewTicker(35 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
+	checkedHour := -1
 	for {
 		select {
 		case <-ticker.C:
@@ -28,9 +29,13 @@ func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tl
 			if !isNewH1Bar(t) {
 				continue
 			}
+			hour := quoter.PreviousHour(t)
+			if checkedHour == hour {
+				continue
+			}
+			checkedHour = hour
 			symbols := quoter.GetAllowedSymbols()
 			var msgs []string
-			hour := quoter.PreviousHour(t)
 			for _, sym := range symbols {
 				q, err := qHolder.GetQuoteByHour(sym, hour)
 				if err != nil {
