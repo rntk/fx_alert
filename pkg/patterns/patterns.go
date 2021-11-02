@@ -1,9 +1,12 @@
 package patterns
 
+import "fx_alert/pkg/quoter"
+
 type Name string
 
 const (
-	PinBar Name = "pinbar"
+	PinBar  Name = "pinbar"
+	StarBar Name = "starbar"
 )
 
 type Sentiment string
@@ -17,4 +20,15 @@ const (
 type Pattern struct {
 	Name      Name
 	Sentiment Sentiment
+}
+
+func FindPattern(q quoter.Quote) *Pattern {
+	if p := pinBar(q); p != nil {
+		return p
+	}
+	if p := starBar(q); p != nil {
+		return p
+	}
+
+	return nil
 }

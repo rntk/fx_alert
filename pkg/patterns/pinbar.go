@@ -25,11 +25,3 @@ func pinBar(q quoter.Quote) *Pattern {
 
 	return nil
 }
-
-func FindPattern(q quoter.Quote) *Pattern {
-	if p := pinBar(q); p != nil {
-		return p
-	}
-
-	return nil
-}
