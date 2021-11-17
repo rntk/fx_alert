@@ -3,6 +3,7 @@ package commands
 import (
 	"errors"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -12,6 +13,8 @@ import (
 )
 
 type CommandType string
+
+var clearWhiteSpace = regexp.MustCompile(`\s+`)
 
 const (
 	AddValue    CommandType = "/add"
@@ -50,6 +53,7 @@ type CommandValue struct {
 
 func Parse(msg string) (*CommandValue, error) {
 	msg = strings.TrimSpace(strings.ToLower(msg))
+	msg = clearWhiteSpace.ReplaceAllString(msg, " ")
 	cmdT, err := CommandFromString(msg)
 	if err != nil {
 		return nil, fmt.Errorf("Can't parse command: %w", err)
