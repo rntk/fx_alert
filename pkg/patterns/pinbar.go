@@ -6,7 +6,7 @@ import (
 	"fx_alert/pkg/quoter"
 )
 
-const PinBarPercent = 70.0
+const PinBarPercent = 65.0
 
 func pinBar(q quoter.Quote) *Pattern {
 	h := q.High - q.Low
