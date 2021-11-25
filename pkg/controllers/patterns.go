@@ -13,11 +13,32 @@ import (
 	"fx_alert/pkg/telegram"
 )
 
+const (
+	timeframeDay  = "day"
+	timeframeHour = "hour"
+)
+
 func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg *telegram.Telegram) {
 	log.Printf("Patterns controller started")
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-	checkedHour := -1
+
+	checked := map[string]int{
+		timeframeHour: -1,
+		timeframeDay:  -1,
+	}
+	checkTime := map[string]func(time.Time) bool{
+		timeframeHour: isNewH1Bar,
+		timeframeDay:  func(t time.Time) bool { return true },
+	}
+	getTime := map[string]func(time.Time) int{
+		timeframeHour: quoter.PreviousHour,
+		timeframeDay:  quoter.PreviousDay,
+	}
+	getQuotes := map[string]func(string, int) (*quoter.Quote, error){
+		timeframeHour: qHolder.GetQuoteByHour,
+		timeframeDay:  qHolder.GetQuoteByDay,
+	}
 	for {
 		select {
 		case <-ticker.C:
@@ -26,44 +47,49 @@ func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tl
 				continue
 			}
 			t := time.Now()
-			if !isNewH1Bar(t) {
-				continue
-			}
-			hour := quoter.PreviousHour(t)
-			if checkedHour == hour {
-				continue
-			}
-			checkedHour = hour
-			symbols := quoter.GetAllowedSymbols()
-			var msgs []string
-			for _, sym := range symbols {
-				q, err := qHolder.GetQuoteByHour(sym, hour)
-				if err != nil {
+			for tf := range checked {
+				if !checkTime[tf](t) {
 					continue
 				}
-				p := patterns.FindPattern(*q)
-				if p == nil {
+				timeToCheck := getTime[tf](t)
+				if timeToCheck == checked[tf] {
 					continue
 				}
-				msgs = append(
-					msgs,
-					fmt.Sprintf(
-						"%s - %s (%s)",
-						strings.ToUpper(sym),
-						string(p.Name),
-						string(p.Sentiment),
-					),
-				)
-			}
-			if len(msgs) == 0 {
-				continue
-			}
-			answer := telegram.Answer{Text: strings.Join(msgs, "\n")}
-			for _, ID := range users {
-				if err := tlg.SendMessage(ID, 0, answer); err != nil {
-					log.Printf("[ERROR] Can't send pattern to %d. %v. %s", ID, err, answer.Text)
+				checked[tf] = timeToCheck
+				symbols := quoter.GetAllowedSymbols()
+				var msgs []string
+				for _, sym := range symbols {
+					q, err := getQuotes[tf](sym, timeToCheck)
+					if err != nil {
+						if tf == timeframeDay {
+							checked[tf] = -1
+						}
+						continue
+					}
+					p := patterns.FindPattern(*q)
+					if p == nil {
+						continue
+					}
+					msgs = append(
+						msgs,
+						fmt.Sprintf(
+							"%s - %s (%s)",
+							strings.ToUpper(sym),
+							string(p.Name),
+							string(p.Sentiment),
+						),
+					)
 				}
-				log.Printf("[INFO] Patterns sent %d. %s", ID, answer.Text)
+				if len(msgs) == 0 {
+					continue
+				}
+				answer := telegram.Answer{Text: tf + "\n" + strings.Join(msgs, "\n")}
+				for _, ID := range users {
+					if err := tlg.SendMessage(ID, 0, answer); err != nil {
+						log.Printf("[ERROR] Can't send pattern to %d. %v. %s", ID, err, answer.Text)
+					}
+					log.Printf("[INFO] Patterns sent %d. %s", ID, answer.Text)
+				}
 			}
 		case <-ctx.Done():
 			return

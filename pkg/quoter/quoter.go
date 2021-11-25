@@ -93,8 +93,8 @@ func (q Quote) IsValid() bool {
 	return true
 }
 
-func GetQuote(symbol string) (*Quote, error) {
-	return rbfrx(symbol)
+func GetQuote(symbol string, day int) (*Quote, error) {
+	return rbfrx(symbol, day)
 }
 
 type rbfrxQuote struct {
@@ -109,9 +109,9 @@ type rbfrxOHLC struct {
 	E float64 `json:"e"`
 }
 
-func rbfrx(symbol string) (*Quote, error) {
+func rbfrx(symbol string, day int) (*Quote, error) {
 	t := time.Now().UTC()
-	day := t.YearDay() - 1
+	day -= 1
 	callback := "jsonp" + strconv.FormatInt(t.Unix(), 10)
 	//"https://price.roboforex.com/prime/2021/GBPUSD/D1/b?jsonp=jsonp1&from=111&to=111"
 	URL := fmt.Sprintf(

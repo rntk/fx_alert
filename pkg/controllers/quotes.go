@@ -53,7 +53,7 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 			}
 			q, err := qHolder.GetCurrentQuote(val.Key)
 			if err != nil {
-				log.Printf("Can't get quotes for: %d. %q. %v", ID, val.Key, err)
+				log.Printf("Can't get quotes to check levels: %d. %q. %v", ID, val.Key, err)
 				continue
 			}
 			if !val.IsAlert(q.Close) {
@@ -95,7 +95,7 @@ func checkMomentum(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg 
 			}
 			qs, err := qHolder.GetQuote(symb)
 			if err != nil {
-				log.Printf("Can't get quotes for: %d. %q. %v", ID, symb, err)
+				log.Printf("Can't get quotes to check momentum: %d. %q. %v", ID, symb, err)
 				continue
 			}
 			diff := qs.Current.Close - qs.Previous.Close
