@@ -60,7 +60,7 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 				continue
 			}
 			go func(ID int64, val db.Value, p float64) {
-				msg := fmt.Sprintf("Alert: %s. \nCurrent: %.5f", val.String(), p)
+				msg := fmt.Sprintf("Alert: %s.  \t  Current: %.5f", val.String(), p)
 				if err := tlg.SendMessage(ID, 0, telegram.Answer{Text: msg}); err != nil {
 					log.Printf("Can't send alert: %d. %q. %v", ID, msg, err)
 					return
@@ -108,7 +108,7 @@ func checkMomentum(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tlg 
 			}
 			go func(ID int64, symb string, diff float64, points int64, qs *quoter.Quotes) {
 				msg := fmt.Sprintf(
-					"Alert: %s. \nDiff: %d (%.5f)\nPrevious: %.5f\nCurrent: %.5f",
+					"Diff: %s - %d (%.5f)\tPrevious: %.5f\tCurrent: %.5f",
 					symb,
 					points,
 					diff,
