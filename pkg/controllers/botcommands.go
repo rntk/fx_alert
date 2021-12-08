@@ -126,12 +126,37 @@ func processAddDeltaValues(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 	if cmd.Value.Value <= 0 {
 		return nil, errors.New("Delta must be > 0")
 	}
+	if cmd.Value.Key == "" {
+		return processAddDeltaSettings(dbH, msg, cmd)
+	}
+
+	return processAddDeltaLevels(dbH, qHolder, msg, cmd)
+}
+
+func processAddDeltaSettings(dbH *db.DB, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
+	us, err := dbH.GetSettings(msg.Chat.ID)
+	if err != nil {
+		if !errors.Is(err, db.ErrUserNotFound) {
+			return nil, errors.New("Can't add delta settings")
+		}
+		us = &db.UserSettings{}
+	}
+	us.Delta = cmd.Value.Value
+
+	if err := dbH.SetSettings(msg.Chat.ID, *us); err != nil {
+		return nil, errors.New("Can't add user settigns")
+	}
+
+	return &telegram.Answer{Text: "added delta settings"}, nil
+}
+
+func processAddDeltaLevels(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Message, cmd commands.CommandValue) (*telegram.Answer, error) {
 	symbols := quoter.GetAllowedSymbols()
 	var answer string
 	var levels []db.Value
 	lk := strings.ToLower(cmd.Value.Key)
 	for _, symb := range symbols {
-		if (cmd.Value.Key != "") && !strings.Contains(strings.ToLower(symb), lk) {
+		if (cmd.Value.Key != commands.AnySymbol) && !strings.Contains(strings.ToLower(symb), lk) {
 			continue
 		}
 		prec := quoter.GetPrecision(symb)

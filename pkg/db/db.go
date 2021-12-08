@@ -19,10 +19,21 @@ const (
 	BelowCurrent ValueType = ">"
 )
 
+var ErrUserNotFound = errors.New("User not found")
+
 type DB struct {
 	l    sync.RWMutex
 	path string
-	db   map[int64]map[string]map[string]ValueType
+	db   map[int64]UserData
+}
+
+type UserData struct {
+	Settings UserSettings
+	Levels   map[string]map[string]ValueType
+}
+
+type UserSettings struct {
+	Delta float64
 }
 
 type Value struct {
@@ -56,23 +67,29 @@ func (v Value) StringValue() string {
 	return strconv.FormatFloat(v.Value, 'f', int(v.Precision), 64)
 }
 
+func (db *DB) initUser(ID int64) {
+	if db.db == nil {
+		db.db = map[int64]UserData{}
+	}
+	if _, exists := db.db[ID]; !exists {
+		db.db[ID] = UserData{
+			Levels: map[string]map[string]ValueType{},
+		}
+	}
+}
+
 func (db *DB) Add(ID int64, values []Value) error {
 	db.l.Lock()
 	defer db.l.Unlock()
-	if db.db == nil {
-		db.db = map[int64]map[string]map[string]ValueType{}
-	}
-	if db.db[ID] == nil {
-		db.db[ID] = map[string]map[string]ValueType{}
-	}
+	db.initUser(ID)
 	for _, val := range values {
 		key := strings.ToUpper(val.Key)
-		if db.db[ID][key] == nil {
-			db.db[ID][key] = map[string]ValueType{}
+		if db.db[ID].Levels[key] == nil {
+			db.db[ID].Levels[key] = map[string]ValueType{}
 		}
 		v := val.StringValue()
-		if _, exists := db.db[ID][key][v]; !exists {
-			db.db[ID][key][v] = val.Type
+		if _, exists := db.db[ID].Levels[key][v]; !exists {
+			db.db[ID].Levels[key][v] = val.Type
 		}
 	}
 
@@ -94,7 +111,7 @@ func (db *DB) deleteKey(ID int64, key string) {
 	if _, exists := db.db[ID]; !exists {
 		return
 	}
-	delete(db.db[ID], key)
+	delete(db.db[ID].Levels, key)
 }
 
 func (db *DB) DeleteValue(ID int64, val Value) error {
@@ -103,15 +120,15 @@ func (db *DB) DeleteValue(ID int64, val Value) error {
 	if db.db == nil {
 		return nil
 	}
-	if db.db[ID] == nil {
+	if db.db[ID].Levels == nil {
 		return nil
 	}
-	if db.db[ID][val.Key] == nil {
+	if db.db[ID].Levels[val.Key] == nil {
 		return nil
 	}
 	v := val.StringValue()
-	delete(db.db[ID][val.Key], v)
-	if len(db.db[ID][val.Key]) == 0 {
+	delete(db.db[ID].Levels[val.Key], v)
+	if len(db.db[ID].Levels[val.Key]) == 0 {
 		db.deleteKey(ID, val.Key)
 	}
 
@@ -124,12 +141,12 @@ func (db *DB) List(ID int64) []Value {
 	if db.db == nil {
 		return nil
 	}
-	if db.db[ID] == nil {
+	if db.db[ID].Levels == nil {
 		return nil
 	}
 	var lst []Value
-	for k := range db.db[ID] {
-		for rawV := range db.db[ID][k] {
+	for k := range db.db[ID].Levels {
+		for rawV := range db.db[ID].Levels[k] {
 			parts := strings.Split(rawV, ".")
 			prec := 5
 			if len(parts) > 1 {
@@ -141,7 +158,7 @@ func (db *DB) List(ID int64) []Value {
 				log.Printf("Can't parse float value from base: %q. %v", rawV, err)
 				continue
 			}
-			lst = append(lst, Value{Key: k, Value: v, Type: db.db[ID][k][rawV], Precision: uint8(prec)})
+			lst = append(lst, Value{Key: k, Value: v, Type: db.db[ID].Levels[k][rawV], Precision: uint8(prec)})
 		}
 	}
 
@@ -169,6 +186,28 @@ func (db *DB) save() error {
 	}
 
 	return ioutil.WriteFile(db.path, b, os.ModePerm)
+}
+
+func (db *DB) GetSettings(ID int64) (*UserSettings, error) {
+	db.l.RLock()
+	defer db.l.RUnlock()
+	if _, exists := db.db[ID]; !exists {
+		return nil, ErrUserNotFound
+	}
+	s := db.db[ID].Settings
+
+	return &s, nil
+}
+
+func (db *DB) SetSettings(ID int64, settings UserSettings) error {
+	db.l.Lock()
+	defer db.l.Unlock()
+	db.initUser(ID)
+	u := db.db[ID]
+	u.Settings = settings
+	db.db[ID] = u
+
+	return db.save()
 }
 
 func New(dbPath string, create bool) (*DB, error) {
