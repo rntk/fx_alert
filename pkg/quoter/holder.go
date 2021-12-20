@@ -45,7 +45,7 @@ func NewHolder(symbols []string) *Holder {
 }
 
 type symbolToFetch struct {
-	Day    int
+	Date   time.Time
 	Symbol string
 }
 
@@ -62,7 +62,7 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 		return
 	}
 	t := time.Now()
-	currentDay := t.YearDay()
+	currentDay := CurrentDay(t)
 	symbChSize := len(h.db)
 	if currentDay != h.prevDay {
 		symbChSize *= 2
@@ -77,7 +77,7 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 		sendSymbN++
 		symbCh <- symbolToFetch{
 			Symbol: symb,
-			Day:    currentDay,
+			Date:   t,
 		}
 	}
 	if currentDay != h.prevDay {
@@ -85,7 +85,7 @@ func (h *Holder) Update(ctx context.Context, workers uint) {
 			sendSymbN++
 			symbCh <- symbolToFetch{
 				Symbol: symb,
-				Day:    PreviousDay(t),
+				Date:   PreviousDay(symb, t),
 			}
 		}
 	}
@@ -250,10 +250,10 @@ func worker(ctx context.Context, symbCh <-chan symbolToFetch, resultCh chan<- wo
 			if !ok {
 				return
 			}
-			q, err := rbfrx(symb.Symbol, symb.Day)
+			q, err := rbfrx(symb.Symbol, symb.Date)
 			wr := workerRes{
 				err: err,
-				day: symb.Day,
+				day: symb.Date.YearDay(),
 			}
 			if err == nil {
 				wr.q = *q
@@ -310,12 +310,9 @@ func CurrentHour(t time.Time) int {
 	return t.UTC().Hour()
 }
 
-func PreviousHour(t time.Time) int {
-	h := CurrentHour(t)
-	h -= 1
-	if h < 0 {
-		h = 23
-	}
+func PreviousHour(date time.Time) int {
+	t := date.UTC().Add(-60 * time.Minute)
+	h := t.Hour()
 
 	return h
 }
@@ -324,15 +321,18 @@ func CurrentDay(t time.Time) int {
 	return t.YearDay()
 }
 
-func PreviousDay(t time.Time) int {
-	d := CurrentDay(t)
-	d -= 1
-	if d <= 0 {
-		d = 365
-		if t.Year()%4 == 0 { // leap year
-			d += 1
-		}
+func PreviousDay(symbol string, date time.Time) time.Time {
+	dayDuration := (60 * time.Minute) * 24
+	t := date.UTC().Add(-dayDuration)
+	if strings.EqualFold(symbol, "btcusd") {
+		return t
+	}
+	weekDay := t.Weekday()
+	if weekDay == 0 {
+		t = t.Add(-2 * dayDuration)
+	} else if weekDay == 6 {
+		t = t.Add(-dayDuration)
 	}
 
-	return d
+	return t
 }

@@ -31,10 +31,6 @@ func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tl
 		timeframeHour: isNewH1Bar,
 		timeframeDay:  func(t time.Time) bool { return true },
 	}
-	getTime := map[string]func(time.Time) int{
-		timeframeHour: quoter.PreviousHour,
-		timeframeDay:  quoter.PreviousDay,
-	}
 	getQuotes := map[string]func(string, int) (*quoter.Quote, error){
 		timeframeHour: qHolder.GetQuoteByHour,
 		timeframeDay:  qHolder.GetQuoteByDay,
@@ -51,7 +47,13 @@ func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tl
 				if !checkTime[tf](t) {
 					continue
 				}
-				timeToCheck := getTime[tf](t)
+				var timeToCheck int
+				if tf == timeframeDay {
+					tt := quoter.PreviousDay("btcusd", t)
+					timeToCheck = tt.YearDay()
+				} else {
+					timeToCheck = quoter.PreviousHour(t)
+				}
 				if timeToCheck == checked[tf] {
 					continue
 				}
@@ -59,6 +61,10 @@ func ProcessPatterns(ctx context.Context, dbH *db.DB, qHolder *quoter.Holder, tl
 				symbols := quoter.GetAllowedSymbols()
 				var msgs []string
 				for _, sym := range symbols {
+					if tf == timeframeDay {
+						tt := quoter.PreviousDay(sym, t)
+						timeToCheck = tt.YearDay()
+					}
 					q, err := getQuotes[tf](sym, timeToCheck)
 					if err != nil {
 						if tf == timeframeDay {
