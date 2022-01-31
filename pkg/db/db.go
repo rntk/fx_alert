@@ -29,7 +29,12 @@ type DB struct {
 
 type UserData struct {
 	Settings UserSettings
-	Levels   map[string]map[string]ValueType
+	Levels   map[string]map[string]Level
+}
+
+type Level struct {
+	Type    ValueType
+	DeltaID string
 }
 
 type UserSettings struct {
@@ -41,6 +46,7 @@ type Value struct {
 	Value     float64
 	Type      ValueType
 	Precision uint8
+	DeltaID   string
 }
 
 func (v Value) IsAlert(currentV float64) bool {
@@ -73,7 +79,7 @@ func (db *DB) initUser(ID int64) {
 	}
 	if _, exists := db.db[ID]; !exists {
 		db.db[ID] = UserData{
-			Levels: map[string]map[string]ValueType{},
+			Levels: map[string]map[string]Level{},
 		}
 	}
 }
@@ -85,11 +91,11 @@ func (db *DB) Add(ID int64, values []Value) error {
 	for _, val := range values {
 		key := strings.ToUpper(val.Key)
 		if db.db[ID].Levels[key] == nil {
-			db.db[ID].Levels[key] = map[string]ValueType{}
+			db.db[ID].Levels[key] = map[string]Level{}
 		}
 		v := val.StringValue()
 		if _, exists := db.db[ID].Levels[key][v]; !exists {
-			db.db[ID].Levels[key][v] = val.Type
+			db.db[ID].Levels[key][v] = Level{Type: val.Type, DeltaID: val.DeltaID}
 		}
 	}
 
@@ -128,6 +134,18 @@ func (db *DB) DeleteValue(ID int64, val Value) error {
 	}
 	v := val.StringValue()
 	delete(db.db[ID].Levels[val.Key], v)
+	if val.DeltaID != "" {
+		delK := ""
+		for k, kv := range db.db[ID].Levels[val.Key] {
+			if kv.DeltaID == val.DeltaID {
+				delK = k
+				break
+			}
+		}
+		if delK != "" {
+			delete(db.db[ID].Levels[val.Key], delK)
+		}
+	}
 	if len(db.db[ID].Levels[val.Key]) == 0 {
 		db.deleteKey(ID, val.Key)
 	}
@@ -158,7 +176,16 @@ func (db *DB) List(ID int64) []Value {
 				log.Printf("Can't parse float value from base: %q. %v", rawV, err)
 				continue
 			}
-			lst = append(lst, Value{Key: k, Value: v, Type: db.db[ID].Levels[k][rawV], Precision: uint8(prec)})
+			lst = append(
+				lst,
+				Value{
+					Key:       k,
+					Value:     v,
+					Type:      db.db[ID].Levels[k][rawV].Type,
+					Precision: uint8(prec),
+					DeltaID:   db.db[ID].Levels[k][rawV].DeltaID,
+				},
+			)
 		}
 	}
 

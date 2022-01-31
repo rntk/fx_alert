@@ -70,8 +70,10 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 					log.Printf("Can't delete: %d. %q. %v", ID, val.String(), err)
 					return
 				}
-				if err := ensureDeltaValues(dbH, qHolder, ID, val.Key); err != nil {
-					log.Printf("Can't add delta values: %d - %s", ID, val.Key)
+				if val.DeltaID != "" {
+					if err := ensureDeltaValues(dbH, qHolder, ID, val.Key); err != nil {
+						log.Printf("Can't add delta values: %d - %s", ID, val.Key)
+					}
 				}
 				log.Printf("Deleted: %d. %q", ID, val.String())
 			}(ID, val, q.Close)
