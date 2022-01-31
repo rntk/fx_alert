@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"math/rand"
 	"sort"
 	"strings"
-	"time"
 
 	"fx_alert/pkg/commands"
 	"fx_alert/pkg/db"
@@ -170,20 +168,19 @@ func processAddDeltaLevels(dbH *db.DB, qHolder *quoter.Holder, msg telegram.Mess
 			continue
 		}
 		d := quoter.FromPoints(symb, int64(cmd.Value.Value))
-		deltaID := fmt.Sprintf("%d_%d", time.Now().Unix(), rand.Int())
 		levels = append(levels, db.Value{
 			Key:       symb,
 			Value:     q.Close + d,
 			Precision: prec,
 			Type:      db.BelowCurrent,
-			DeltaID:   deltaID,
+			Delta:     uint64(cmd.Value.Value),
 		})
 		levels = append(levels, db.Value{
 			Key:       symb,
 			Value:     q.Close - d,
 			Precision: prec,
 			Type:      db.AboveCurrent,
-			DeltaID:   deltaID,
+			Delta:     uint64(cmd.Value.Value),
 		})
 	}
 	if len(levels) > 0 {

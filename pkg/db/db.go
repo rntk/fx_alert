@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -29,12 +28,12 @@ type DB struct {
 
 type UserData struct {
 	Settings UserSettings
-	Levels   map[string]map[string]Level
+	Levels   map[string][]Value
 }
 
 type Level struct {
-	Type    ValueType
-	DeltaID string
+	Type  ValueType
+	Delta int
 }
 
 type UserSettings struct {
@@ -46,7 +45,7 @@ type Value struct {
 	Value     float64
 	Type      ValueType
 	Precision uint8
-	DeltaID   string
+	Delta     uint64
 }
 
 func (v Value) IsAlert(currentV float64) bool {
@@ -79,7 +78,7 @@ func (db *DB) initUser(ID int64) {
 	}
 	if _, exists := db.db[ID]; !exists {
 		db.db[ID] = UserData{
-			Levels: map[string]map[string]Level{},
+			Levels: map[string][]Value{},
 		}
 	}
 }
@@ -91,12 +90,19 @@ func (db *DB) Add(ID int64, values []Value) error {
 	for _, val := range values {
 		key := strings.ToUpper(val.Key)
 		if db.db[ID].Levels[key] == nil {
-			db.db[ID].Levels[key] = map[string]Level{}
+			db.db[ID].Levels[key] = []Value{}
 		}
-		v := val.StringValue()
-		if _, exists := db.db[ID].Levels[key][v]; !exists {
-			db.db[ID].Levels[key][v] = Level{Type: val.Type, DeltaID: val.DeltaID}
+		exists := false
+		for _, dbV := range db.db[ID].Levels[key] {
+			if val.Value == dbV.Value {
+				exists = true
+				break
+			}
 		}
+		if exists {
+			continue
+		}
+		db.db[ID].Levels[key] = append(db.db[ID].Levels[key], val)
 	}
 
 	return db.save()
@@ -120,30 +126,44 @@ func (db *DB) deleteKey(ID int64, key string) {
 	delete(db.db[ID].Levels, key)
 }
 
+func (db *DB) deleteValue(ID int64, key string, pos int) {
+	if db.db == nil {
+		return
+	}
+	if db.db[ID].Levels == nil {
+		return
+	}
+	key = strings.ToUpper(key)
+	if len(db.db[ID].Levels[key]) == 0 {
+		return
+	}
+
+	if pos >= 0 {
+		ln := len(db.db[ID].Levels[key])
+		if ln > 1 {
+			db.db[ID].Levels[key][pos] = db.db[ID].Levels[key][ln-1]
+			db.db[ID].Levels[key] = db.db[ID].Levels[key][:ln-1]
+		} else {
+			db.db[ID].Levels[key] = nil
+		}
+	}
+}
+
 func (db *DB) DeleteValue(ID int64, val Value) error {
 	db.l.Lock()
 	defer db.l.Unlock()
-	if db.db == nil {
-		return nil
+	for i, v := range db.db[ID].Levels[val.Key] {
+		if v.Value == val.Value {
+			db.deleteValue(ID, val.Key, i)
+			break
+		}
 	}
-	if db.db[ID].Levels == nil {
-		return nil
-	}
-	if db.db[ID].Levels[val.Key] == nil {
-		return nil
-	}
-	v := val.StringValue()
-	delete(db.db[ID].Levels[val.Key], v)
-	if val.DeltaID != "" {
-		delK := ""
-		for k, kv := range db.db[ID].Levels[val.Key] {
-			if kv.DeltaID == val.DeltaID {
-				delK = k
+	if val.Delta > 0 {
+		for i, v := range db.db[ID].Levels[val.Key] {
+			if v.Delta == val.Delta {
+				db.deleteValue(ID, val.Key, i)
 				break
 			}
-		}
-		if delK != "" {
-			delete(db.db[ID].Levels[val.Key], delK)
 		}
 	}
 	if len(db.db[ID].Levels[val.Key]) == 0 {
@@ -164,29 +184,7 @@ func (db *DB) List(ID int64) []Value {
 	}
 	var lst []Value
 	for k := range db.db[ID].Levels {
-		for rawV := range db.db[ID].Levels[k] {
-			parts := strings.Split(rawV, ".")
-			prec := 5
-			if len(parts) > 1 {
-				prec = len(parts[1])
-			}
-			v, err := strconv.ParseFloat(rawV, 64)
-			if err != nil {
-				// TODO: panic or change db scheme?
-				log.Printf("Can't parse float value from base: %q. %v", rawV, err)
-				continue
-			}
-			lst = append(
-				lst,
-				Value{
-					Key:       k,
-					Value:     v,
-					Type:      db.db[ID].Levels[k][rawV].Type,
-					Precision: uint8(prec),
-					DeltaID:   db.db[ID].Levels[k][rawV].DeltaID,
-				},
-			)
-		}
+		lst = append(lst, db.db[ID].Levels[k]...)
 	}
 
 	return lst

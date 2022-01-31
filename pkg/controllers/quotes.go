@@ -70,8 +70,8 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 					log.Printf("Can't delete: %d. %q. %v", ID, val.String(), err)
 					return
 				}
-				if val.DeltaID != "" {
-					if err := ensureDeltaValues(dbH, qHolder, ID, val.Key); err != nil {
+				if val.Delta > 0 {
+					if err := ensureDeltaValues(dbH, qHolder, ID, val.Key, val.Delta); err != nil {
 						log.Printf("Can't add delta values: %d - %s", ID, val.Key)
 					}
 				}
@@ -81,32 +81,27 @@ func checkUsersLevelAlerts(ctx context.Context, dbH *db.DB, qHolder *quoter.Hold
 	}
 }
 
-func ensureDeltaValues(dbH *db.DB, qHolder *quoter.Holder, ID int64, symb string) error {
-	us, err := dbH.GetSettings(ID)
-	if err != nil {
-		return err
-	}
-	if us.Delta <= 0 {
-		return nil
-	}
+func ensureDeltaValues(dbH *db.DB, qHolder *quoter.Holder, ID int64, symb string, delta uint64) error {
 	q, err := qHolder.GetCurrentQuote(symb)
 	if err != nil {
 		return err
 	}
 	prec := quoter.GetPrecision(symb)
-	d := quoter.FromPoints(symb, int64(us.Delta))
+	d := quoter.FromPoints(symb, int64(delta))
 	levels := []db.Value{
 		{
 			Key:       symb,
 			Value:     q.Close + d,
 			Precision: prec,
 			Type:      db.BelowCurrent,
+			Delta:     delta,
 		},
 		{
 			Key:       symb,
 			Value:     q.Close - d,
 			Precision: prec,
 			Type:      db.AboveCurrent,
+			Delta:     delta,
 		},
 	}
 	if err := dbH.Add(ID, levels); err != nil {
